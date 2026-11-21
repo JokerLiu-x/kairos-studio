@@ -37,7 +37,7 @@ async function exitProject() {
   if (leaving.value) return;
   leaving.value = true;
   try {
-    await router.push("/home");
+    await router.push("/studio/projects");
   } finally {
     leaving.value = false;
   }

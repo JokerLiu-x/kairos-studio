@@ -1,0 +1,9 @@
+{
+  "name": "@toonflow/drama-studio",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@toonflow/file": "workspace:*",
+    "zod": "^4.6.2"
+  }
+}

@@ -27,6 +27,13 @@
         "electrobun": "2.0.5",
       },
     },
+    "apps/dramaStudio": {
+      "name": "@toonflow/drama-studio",
+      "dependencies": {
+        "@toonflow/file": "workspace:*",
+        "zod": "^4.6.2",
+      },
+    },
     "apps/mobile": {
       "name": "@toonflow/mobile",
       "dependencies": {
@@ -1523,6 +1530,8 @@
     "@toonflow/assets": ["@toonflow/assets@workspace:packages/assets"],
 
     "@toonflow/desktop": ["@toonflow/desktop@workspace:apps/desktop"],
+
+    "@toonflow/drama-studio": ["@toonflow/drama-studio@workspace:apps/dramaStudio"],
 
     "@toonflow/ext-canvas-node": ["@toonflow/ext-canvas-node@workspace:packages/ext/canvasNode"],
 

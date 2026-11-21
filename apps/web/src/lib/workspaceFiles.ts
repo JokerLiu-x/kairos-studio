@@ -4,7 +4,7 @@ import { toValue, type MaybeRefOrGetter } from "vue";
 import { useWorkspaceStore } from "@/stores/workspace";
 import { registerApiLanguage } from "@/lib/i18n";
 
-type WorkspaceEntry = { name: string; path: string; type: "file" | "directory" };
+type WorkspaceEntry = { name: string; path: string; type: "file" | "directory"; modifiedAt?: number; size?: number };
 export type TextSnapshot = { text: string; revision: string; encoding: "utf-8" | "utf-8-bom" | "utf-16le" | "utf-16be" };
 const client = axios.create({ baseURL: "/api/workspaces/files", headers: { "x-toonflow-workspace": "1" } });
 registerApiLanguage(client);
@@ -32,9 +32,13 @@ export default function useWorkspaceFiles(directory?: MaybeRefOrGetter<string | 
     return path;
   }
 
-  async function list(path = "", signal?: AbortSignal) {
-    const { data } = await client.get<{ data: { directory: string; empty: boolean; entries: WorkspaceEntry[] } }>("/list", { params: { directory: getDirectory(), path }, signal });
+  async function list(path = "", signal?: AbortSignal, details = false) {
+    const { data } = await client.get<{ data: { directory: string; empty: boolean; entries: WorkspaceEntry[] } }>("/list", { params: { directory: getDirectory(), path, ...(details ? { details: "true" } : {}) }, signal });
     return data.data;
+  }
+
+  function readUrl(path: string) {
+    return `/api/workspaces/files/read?${new URLSearchParams({ directory: getDirectory(), path })}`;
   }
 
   async function read(path: string) {
@@ -163,5 +167,5 @@ export default function useWorkspaceFiles(directory?: MaybeRefOrGetter<string | 
   }
 
   // ACT: 当前目录逐次读取；跨 await 或防抖的操作传入目录字符串，固定本次目标。
-  return { list, read, importImage, cloneProject, exportZip, acquireUrl, readText, readJson, readTextSnapshot, writeTextSnapshot, write, writeJson, rename, copy, reveal, remove, mkdir };
+  return { list, read, readUrl, importImage, cloneProject, exportZip, acquireUrl, readText, readJson, readTextSnapshot, writeTextSnapshot, write, writeJson, rename, copy, reveal, remove, mkdir };
 }

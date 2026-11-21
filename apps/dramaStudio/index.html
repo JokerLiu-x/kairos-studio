@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>漫剧工作台</title>
+  <link rel="stylesheet" href="/studio.css">
+  <script type="module" src="/studio.js"></script>
+</head>
+<body>
+  <aside class="rail">
+    <div class="identity"><span class="logo" aria-hidden="true"></span><span>漫剧工作台</span></div>
+    <div class="episodeField">
+      <div class="railLabel"><label for="episodeSelect">当前剧集</label><button class="railAdd" data-action="newEpisode" aria-label="新建一集" title="新建一集">＋</button></div>
+      <select id="episodeSelect" aria-label="当前剧集"></select>
+    </div>
+    <nav aria-label="制作流程">
+      <button data-action="section" data-id="assets"><span class="navIcon" aria-hidden="true">▧</span>素材库</button>
+      <button data-action="section" data-id="shots"><span class="navIcon" aria-hidden="true">▤</span>分镜台</button>
+      <button data-action="section" data-id="film"><span class="navIcon" aria-hidden="true">▷</span>成片</button>
+    </nav>
+    <button class="railSettings" data-action="settings"><span class="signal" id="signal"></span><span id="connectionLabel">Muse 设置</span><span aria-hidden="true">⚙</span></button>
+  </aside>
+  <main id="workspace">
+    <header class="topBar"></header>
+    <section id="page" aria-label="工作区"></section>
+  </main>
+  <dialog id="modal"><form id="modalForm"></form></dialog>
+  <div id="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>

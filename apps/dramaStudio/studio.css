@@ -1,0 +1,173 @@
+:root {
+  color-scheme: light;
+  --paper: #f5f3ed;
+  --surface: #fffdf8;
+  --ink: #22231f;
+  --muted: #696861;
+  --line: #dcd8ce;
+  --red: #ae3828;
+  --redDeep: #902c20;
+  --tint: #f8e9e1;
+  --green: #426146;
+  --rail: #252822;
+  --serif: "Noto Serif SC", "Source Han Serif SC", "Songti SC", SimSun, Georgia, serif;
+  --sans: "MiSans", "Microsoft YaHei UI", "PingFang SC", sans-serif;
+  font: 14px/1.5 var(--sans);
+  color: var(--ink);
+  background: var(--paper);
+}
+
+* { box-sizing: border-box }
+body { margin: 0; display: grid; grid-template-columns: 205px minmax(0, 1fr); min-height: 100vh }
+button, input, textarea, select { font: inherit; color: inherit }
+button, select { cursor: pointer }
+button, .button { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 6px; padding: 8px 12px; text-decoration: none; white-space: nowrap; display: inline-flex; justify-content: center; align-items: center; gap: 6px }
+button:hover, .button:hover { border-color: #9f9b90; background: #fff }
+button:disabled { opacity: .45; cursor: default }
+.primary { background: var(--red); border-color: var(--red); color: white; font-weight: 650 }
+.primary:hover { background: var(--redDeep); border-color: var(--redDeep) }
+.plain { background: transparent }
+.compact { padding: 5px 8px; font-size: 12px }
+.danger { color: var(--redDeep) }
+:focus-visible { outline: 2px solid var(--red); outline-offset: 3px }
+[hidden] { display: none !important }
+h1, h2, h3, p, figure { margin: 0 }
+h1, h2 { font-family: var(--serif); font-weight: 700; letter-spacing: -.025em }
+h1 { font-size: clamp(26px, 3.6vw, 44px); line-height: 1.15 }
+h2 { font-size: 21px }
+h3 { font-size: 14px }
+small, .muted { color: var(--muted) }
+.mono { font-family: "Cascadia Mono", Consolas, monospace; font-variant-numeric: tabular-nums }
+.rail { position: sticky; top: 0; height: 100dvh; padding: 29px 17px 16px; background: var(--rail); color: #f7f5e9; display: flex; flex-direction: column; gap: 27px }
+.identity { display: flex; align-items: center; gap: 11px; padding: 0 4px; font-family: var(--serif); font-size: 18px; font-weight: 700; white-space: nowrap }
+.logo { width: 25px; height: 25px; border: 1px solid #e7ad8d; border-radius: 3px; position: relative; transform: rotate(-9deg) }
+.logo::after { content: ""; position: absolute; inset: 5px; border: 1px solid #e7ad8d; border-radius: 1px; transform: rotate(17deg) }
+.railLabel { display: flex; align-items: center; justify-content: space-between; padding-left: 2px; font-size: 11px; color: #c3c3b7; letter-spacing: .14em }
+.railAdd { background: transparent; border: 0; padding: 3px; color: #f4cfb6; font-size: 16px }
+.railAdd:hover { background: #3a3d35 }
+.episodeField select { width: 100%; background: #32352d; color: #f7f5e9; border: 1px solid #57574c; border-radius: 6px; padding: 9px; text-overflow: ellipsis }
+.rail nav { display: grid; gap: 6px }
+.rail nav button, .railSettings { justify-content: flex-start; gap: 10px; border: 1px solid transparent; text-align: left; background: transparent; color: #dfdfd2; padding: 10px 12px }
+.rail nav button:hover, .railSettings:hover { color: white; background: #373a32 }
+.rail nav [aria-current="page"] { color: #fff6eb; border-color: #595046; background: #484037; box-shadow: inset 3px 0 #d4805f }
+.navIcon { font-size: 18px; width: 18px; color: #e0af94; line-height: 1 }
+.railSettings { margin-top: auto; width: 100% }
+.railSettings span:last-child { margin-left: auto }
+.signal { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #9c9c8e; flex: none }
+.signal.ready { background: #a8bf91 }
+.signal.offline { background: #ee9f82 }
+#workspace { min-width: 0 }
+.topBar { display: flex; align-items: end; justify-content: space-between; gap: 15px; min-height: 126px; padding: 29px 37px 19px; border-bottom: 1px solid var(--line); background: #faf8f2 }
+.crumb { color: var(--muted); font-size: 12px; margin-bottom: 7px; overflow-wrap: anywhere }
+#page { max-width: 1600px; margin: 0 auto; padding: 24px 37px 42px }
+.actions { display: flex; gap: 7px; align-items: center; flex-wrap: wrap }
+.spacer { flex: 1 }
+.strip { display: flex; align-items: center; gap: 8px; padding: 0 0 15px; flex-wrap: wrap }
+.stats { font-size: 12px; color: var(--muted); margin-left: 2px }
+.empty { padding: 60px 24px; border: 1px dashed #bcb6a8; text-align: center; border-radius: 9px; background: #faf8f1 }
+.empty h2 { margin-bottom: 8px }
+.empty p { color: var(--muted); margin-bottom: 16px }
+.emptyMark { display: block; width: 72px; height: 46px; border: 1px solid #b99b8d; border-radius: 5px; margin: 0 auto 18px; background: repeating-linear-gradient(135deg, transparent 0 8px, #eee4d9 8px 9px); transform: rotate(-6deg) }
+.split { display: grid; grid-template-columns: minmax(235px, 0.85fr) minmax(340px, 1.35fr); gap: 18px; align-items: start }
+.sheet { min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 9px; overflow: hidden }
+.sheetHead { padding: 12px 15px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 8px; justify-content: space-between }
+.shotRows { padding: 5px }
+.shotRow { display: grid; grid-template-columns: 18px 27px 48px minmax(0, 1fr) auto; align-items: center; gap: 8px; border: 1px solid transparent; border-bottom-color: #eeeae1; min-height: 61px; padding: 6px 8px; cursor: pointer; user-select: none }
+.shotRow:last-child { border-bottom-color: transparent }
+.shotRow:hover { background: #f7f5ee }
+.shotRow.selected { background: var(--tint); border-color: #dfb6a7; border-left: 3px solid var(--red); border-radius: 5px; padding-left: 6px }
+.shotRow.dragOver { border-top: 2px solid var(--red) }
+.shotThumb { background: #e9e6dd; width: 48px; height: 34px; display: grid; place-items: center; border-radius: 3px; overflow: hidden; color: #76716a }
+.shotThumb img { width: 100%; height: 100%; object-fit: cover }
+.shotName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 650; text-align: left; display: block; background: none; padding: 0; border: 0; border-radius: 0 }
+.shotName:hover { color: var(--red); background: transparent }
+.status { font-size: 11px; white-space: nowrap; color: var(--muted) }
+.status.success { color: var(--green) }
+.status.error { color: var(--redDeep) }
+.status.active { color: #84521f }
+.details { padding: 16px }
+.details h3 { margin-bottom: 7px }
+.field { display: grid; gap: 6px; min-width: 0 }
+.field > span, .formLabel { font-size: 12px; font-weight: 700; color: #54534b }
+.field input:not([type="checkbox"]), .field textarea, .field select, .search { width: 100%; min-width: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 5px; background: #fffefa }
+.field textarea { resize: vertical; min-height: 70px }
+.field input[type="number"] { font-variant-numeric: tabular-nums }
+.fieldGrid { display: grid; grid-template-columns: minmax(0, 1fr) 98px; gap: 12px }
+.fieldGrid.even { grid-template-columns: repeat(2, minmax(0, 1fr)) }
+.fieldStack { display: grid; gap: 12px }
+.rule { border: 0; border-top: 1px solid var(--line); margin: 16px 0 }
+.refGrid { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 8px }
+.refChip { display: inline-flex; gap: 4px; align-items: center; border: 1px solid var(--line); border-radius: 5px; padding: 2px }
+.refChip img { width: 32px; height: 30px; object-fit: cover; border-radius: 3px }
+.refChip button { border: 0; background: transparent; max-width: 155px; overflow: hidden; text-overflow: ellipsis; display: block }
+.refChip .compact { padding: 4px 5px }
+.videoFrame { display: grid; place-items: center; background: #242520; border-radius: 6px; overflow: hidden; min-height: 100px; color: #dfded4 }
+.videoFrame video { width: 100%; max-height: min(53vh, 465px); display: block }
+.resultMeta { overflow-wrap: anywhere }
+.resultMeta p { padding: 4px 0 }
+.notice { border-left: 3px solid #b37a50; padding: 7px 9px; background: #fcf1e2; color: #694223; font-size: 12px; overflow-wrap: anywhere }
+.dropZone { padding: 17px 16px; border: 1px dashed #afa897; background: #fbf8ee; border-radius: 7px; display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 16px }
+.dropZone.over { border-color: var(--red); background: var(--tint) }
+.dropZone strong { display: block; margin-bottom: 3px }
+.filter { background: transparent }
+.filter[aria-pressed="true"] { background: var(--ink); color: white; border-color: var(--ink) }
+.search { width: min(205px, 100%); margin-left: auto }
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 13px }
+.assetCard { background: var(--surface); border: 1px solid var(--line); border-radius: 7px; overflow: hidden; min-width: 0 }
+.assetPreview { aspect-ratio: 4/3; display: grid; place-items: center; background: #e9e6dc; overflow: hidden }
+.assetPreview img, .assetPreview video { width: 100%; height: 100%; object-fit: cover }
+.assetPreview.audio { padding: 12px }
+.assetPreview audio { width: 100%; height: 35px }
+.assetLabel { padding: 9px; display: flex; gap: 7px; align-items: center }
+.assetLabel strong { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.assetLabel small { white-space: nowrap }
+.filmGrid { display: grid; grid-template-columns: minmax(240px, .75fr) minmax(320px, 1.25fr); gap: 17px; align-items: start }
+.filmRows { list-style: none; margin: 0; padding: 5px 10px }
+.filmRow { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: start; padding: 10px 3px; gap: 7px; border-bottom: 1px solid #eeeae1 }
+.filmRow:last-child { border-bottom: 0 }
+.filmRow p { overflow-wrap: anywhere }
+.filmRow .actions { gap: 3px }
+.filmRow .actions button { padding: 3px 6px }
+.liveCaption { min-height: 27px; padding: 7px 0; text-align: center; font-size: 14px }
+.exportList { display: grid; gap: 9px; padding-top: 13px }
+.exportRow { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; padding: 9px; background: #f4f0e8; border-radius: 5px; font-size: 12px }
+.imageTasks:not(:empty) { display: grid; gap: 5px; margin-bottom: 15px }
+.imageTasks strong { overflow-wrap: anywhere }
+.imageTasks .notice { flex-basis: 100% }
+progress { width: 90px; accent-color: var(--red) }
+dialog { width: min(520px, calc(100vw - 26px)); max-height: calc(100dvh - 28px); border: 1px solid #9b8c7f; border-radius: 10px; color: var(--ink); background: var(--surface); padding: 0; box-shadow: 0 24px 70px #26221940 }
+dialog::backdrop { background: #1e211bbb }
+dialog form { padding: 20px }
+dialog .actions { justify-content: flex-end }
+dialog .fieldStack { margin: 14px 0 }
+.pickList { display: grid; gap: 5px; max-height: 315px; overflow: auto }
+.pick { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--line); padding: 5px 2px }
+.pick img { width: 50px; height: 38px; object-fit: cover; border-radius: 4px }
+.pick small { margin-left: auto }
+#toast { position: fixed; right: 20px; bottom: 20px; z-index: 4; padding: 10px 15px; border-radius: 6px; color: white; background: #353b31; box-shadow: 0 4px 18px #0002; max-width: min(520px, calc(100vw - 40px)); overflow-wrap: anywhere }
+#toast.error { background: var(--redDeep) }
+input[type="checkbox"] { accent-color: var(--red) }
+
+@media (max-width: 1040px) {
+  body { grid-template-columns: 162px minmax(0, 1fr) }
+  .rail { padding-left: 11px; padding-right: 11px }
+  .identity { font-size: 16px }
+  .topBar, #page { padding-left: 21px; padding-right: 21px }
+  .split, .filmGrid { gap: 10px }
+  .shotRow { grid-template-columns: 15px 20px 32px minmax(0, 1fr) auto; gap: 5px }
+  .shotThumb { width: 32px; height: 27px }
+}
+@media (max-width: 805px) {
+  .split, .filmGrid { grid-template-columns: 1fr }
+}
+@media (max-width: 560px) {
+  body { display: block }
+  .rail { z-index: 2; position: static; height: auto; gap: 10px; padding: 11px 13px }
+  .identity { padding-left: 0 }
+  .rail nav { grid-template-columns: repeat(3, 1fr) }
+  .rail nav button { padding: 5px 7px; white-space: nowrap; gap: 5px }
+  .railSettings { width: fit-content; padding: 4px 8px }
+  .topBar { align-items: start; flex-direction: column; min-height: 0; padding-top: 16px }
+  #page { padding-top: 16px }
+  .dropZone { align-items: start; flex-direction: column }
+}

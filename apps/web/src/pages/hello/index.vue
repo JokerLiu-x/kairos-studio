@@ -85,7 +85,7 @@ async function completeSetup() {
   try {
     await hello.complete();
     anonymousData.track(view.value === "custom" || toonflowAccountToken.value ? "onboarding.complete" : "onboarding.skip");
-    await router.replace("/home");
+    await router.replace("/studio");
   } catch {
     ElMessage.error("保存引导状态失败，请重试");
   } finally {

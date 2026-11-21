@@ -27,7 +27,7 @@
                 v-else
                 :is="activePanel.component"
                 v-bind="
-                  ['account', 'pluginMarket', 'languageModel', 'mediaModel', 'personalization', 'deviceLink'].includes(activePanel.id) ? { visible } : {}
+                  activePanel.id === 'videoModel' ? { mediaType: 'video' } : ['account', 'pluginMarket', 'languageModel', 'mediaModel', 'personalization', 'deviceLink'].includes(activePanel.id) ? { visible } : {}
                 " />
             </keep-alive>
           </transition>
@@ -49,6 +49,8 @@ import { isMobile } from "@/lib/platform";
 import {
   IconSettings,
   IconPhotoVideo,
+  IconPhoto,
+  IconVideo,
   IconBuildingStore,
   IconInfoCircle,
   IconCode,
@@ -71,6 +73,8 @@ const allSettingsPanels = [
     groupLabel: "第三方模型",
     component: defineAsyncComponent(() => import("./panels/languageModel/index.vue")),
   },
+  { id: "imageModel", label: "图像模型", icon: IconPhoto, component: defineAsyncComponent(() => import("./panels/imageModel/index.vue")) },
+  { id: "videoModel", label: "视频模型", icon: IconVideo, component: defineAsyncComponent(() => import("./panels/imageModel/index.vue")) },
   { id: "mediaModel", label: "媒体模型", icon: IconPhotoVideo, component: defineAsyncComponent(() => import("./panels/mediaModel/index.vue")) },
   {
     id: "pluginMarket",
@@ -99,7 +103,7 @@ const publicAccountPanel = { ...allSettingsPanels[0]!, get label() { return tran
 const settingsPanels = computed(() => allSettingsPanels.filter(item => {
   if (publicWeb.value && currentUser.value?.role === "user") return ["account", "general", "about"].includes(item.id);
   if (publicWeb.value && ["multiTenant", "deviceLink", "network", "mcp", "developer", "pluginMarket"].includes(item.id)) return false;
-  return !multiTenantEnabled.value || !["languageModel", "mediaModel", "developer"].includes(item.id);
+  return !multiTenantEnabled.value || !["languageModel", "imageModel", "videoModel", "mediaModel", "developer"].includes(item.id);
 }).map(item => publicWeb.value && item.id === "account" ? publicAccountPanel : item));
 const activePanel = shallowRef(settingsPanels.value[0]!);
 const visible = defineModel<boolean>({ default: false });
