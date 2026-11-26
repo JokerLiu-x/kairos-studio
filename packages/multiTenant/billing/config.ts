@@ -1,7 +1,14 @@
 import { z } from "zod";
 import { modelAmountSchema } from "@toonflow/multi-tenant-models/config";
 
-export const billingCurrencySchema = z.enum(["CNY", "USD"]);
+export const billingCurrencySchema = z.enum(["CNY", "USD", "POINTS"]);
+export const pointsPacks = [
+  { id: "starter", label: "体验包", amountFen: 990, points: 100 },
+  { id: "creator", label: "创作包", amountFen: 2990, points: 330 },
+  { id: "studio", label: "进阶包", amountFen: 5990, points: 700 },
+  { id: "production", label: "高频包", amountFen: 9990, points: 1250 },
+] as const;
+export const pointsRates = { image: 8, video: 50, duration: 10, resolution: "720p" } as const;
 export const billingCreditSchema = z.strictObject({
   userId: z.uuid(),
   currency: billingCurrencySchema,

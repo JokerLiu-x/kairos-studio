@@ -2,7 +2,7 @@ import mysql from "mysql2/promise";
 import { drizzle } from "drizzle-orm/mysql2";
 import { and, asc, count, desc, eq, getTableColumns, sql } from "drizzle-orm";
 import { mysqlSchema, varchar } from "drizzle-orm/mysql-core";
-import { mysqlAdmin, mysqlBillingLedger, mysqlModelRouting, mysqlSettings, mysqlSourceMapping, mysqlUser, mysqlWallet, mysqlWebSession } from "./schema";
+import { mysqlAdmin, mysqlBillingLedger, mysqlModelRouting, mysqlPointsOrder, mysqlSettings, mysqlSourceMapping, mysqlUser, mysqlWallet, mysqlWebSession } from "./schema";
 import type { AdminDatabase, WalletRecord } from "./schema";
 import type { DataSource } from "./index";
 import { maxWalletMicros, validateWalletAmount, walletBalanceOverflow, walletSettlementExceeded, walletStateConflict } from "./billing";
@@ -11,6 +11,7 @@ const informationColumns = mysqlSchema("information_schema").table("COLUMNS", {
   tableSchema: varchar("TABLE_SCHEMA", { length: 64 }).notNull(),
   tableName: varchar("TABLE_NAME", { length: 64 }).notNull(),
   columnName: varchar("COLUMN_NAME", { length: 64 }).notNull(),
+  columnType: varchar("COLUMN_TYPE", { length: 255 }).notNull(),
 });
 const informationTables = mysqlSchema("information_schema").table("TABLES", {
   tableSchema: varchar("TABLE_SCHEMA", { length: 64 }).notNull(),
@@ -62,7 +63,7 @@ export function connectMysql(config: Extract<DataSource, { provider: "mysql" }>[
     async initializeBilling() {
       await db.execute(sql`CREATE TABLE IF NOT EXISTS multiTenantWallet (
         userId VARCHAR(36) NOT NULL,
-        currency ENUM('CNY', 'USD') NOT NULL,
+        currency ENUM('CNY', 'USD', 'POINTS') NOT NULL,
         balanceMicros BIGINT NOT NULL DEFAULT 0,
         reservedMicros BIGINT NOT NULL DEFAULT 0,
         PRIMARY KEY (userId, currency),
@@ -72,7 +73,7 @@ export function connectMysql(config: Extract<DataSource, { provider: "mysql" }>[
       await db.execute(sql`CREATE TABLE IF NOT EXISTS multiTenantBillingLedger (
         requestId VARCHAR(36) PRIMARY KEY,
         userId VARCHAR(36) NOT NULL,
-        currency ENUM('CNY', 'USD') NOT NULL,
+        currency ENUM('CNY', 'USD', 'POINTS') NOT NULL,
         kind ENUM('credit', 'model') NOT NULL,
         status ENUM('reserved', 'settled', 'released') NOT NULL,
         requestHash VARCHAR(64) NOT NULL,
@@ -87,6 +88,25 @@ export function connectMysql(config: Extract<DataSource, { provider: "mysql" }>[
         CHECK (amountMicros >= 0 AND amountMicros <= 9007199254740991)
       ) ENGINE=InnoDB`);
       await requireBillingEngine();
+      const currencyColumns = await db.select({ table: informationColumns.tableName, type: informationColumns.columnType }).from(informationColumns)
+        .where(and(eq(informationColumns.tableSchema, config.database), eq(informationColumns.columnName, "currency"),
+          sql`${informationColumns.tableName} IN ('multiTenantWallet', 'multiTenantBillingLedger')`));
+      if (currencyColumns.some(column => column.table === "multiTenantWallet" && !column.type.includes("'POINTS'"))) {
+        await db.execute(sql`ALTER TABLE multiTenantWallet MODIFY currency ENUM('CNY', 'USD', 'POINTS') NOT NULL`);
+      }
+      if (currencyColumns.some(column => column.table === "multiTenantBillingLedger" && !column.type.includes("'POINTS'"))) {
+        await db.execute(sql`ALTER TABLE multiTenantBillingLedger MODIFY currency ENUM('CNY', 'USD', 'POINTS') NOT NULL`);
+      }
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS kairosPointsOrder (
+        id VARCHAR(36) PRIMARY KEY, creditId VARCHAR(36) NOT NULL UNIQUE, userId VARCHAR(36) NOT NULL, packId VARCHAR(32) NOT NULL,
+        amountFen INT NOT NULL, points INT NOT NULL, createdAt BIGINT NOT NULL
+      ) ENGINE=InnoDB`);
+    },
+    async createPointsOrder(order) {
+      await db.insert(mysqlPointsOrder).values(order).onDuplicateKeyUpdate({ set: { id: sql`id` } });
+    },
+    async getPointsOrder(id) {
+      return (await db.select().from(mysqlPointsOrder).where(eq(mysqlPointsOrder.id, id)).limit(1))[0];
     },
     async getWallets(userId) {
       try {

@@ -201,9 +201,9 @@ async function prepareRequest<T>(directory: string | undefined, mediaType: "imag
 async function configuredProvider(request: MediaGenerationRequest, mediaType: "image" | "video" | "audio", signal?: AbortSignal, directory?: string,
   saveTaskData?: (data: ProviderTaskData) => Promise<void>, resume = false, modelRouteCipher?: string) {
   if (modelGateway.enabled() || modelRouteCipher) {
-    const { upstream } = await modelGateway.resolve(mediaType, request.providerId, request.modelId, modelRouteCipher, request);
+    const { upstream, route } = await modelGateway.resolve(mediaType, request.providerId, request.modelId, modelRouteCipher, request);
     const provider = await loadMediaProviderSource(upstream.source, upstream.config, signal, undefined, directory, saveTaskData, upstream.cloud);
-    return { provider, request: { ...request, providerId: provider.id, modelId: upstream.upstreamModelId } };
+    return { provider, request: { ...request, providerId: provider.id, modelId: upstream.upstreamModelId }, singlePointImage: mediaType === "image" && route.salePrice.currency === "POINTS" };
   }
   const info = await getMediaProvider(request.providerId);
   if (!resume && !info.models.some(model => model.id === request.modelId && model.type === mediaType)) invalid("所选媒体模型不存在或类型不匹配，请重新选择");
@@ -231,7 +231,8 @@ export async function getMediaPrice(directory: string | undefined, mediaType: "i
   signal?.throwIfAborted();
   if (modelGateway.enabled()) {
     const quote = await modelGateway.quoteRequest(mediaType, request.providerId, request.modelId, request);
-    return { ...quote, price: `${quote.amount} ${quote.currency}`, tips: translateMessage("平台售价，按实际用量结算") };
+    const unit = quote.currency === "POINTS" ? "积分" : quote.currency;
+    return { ...quote, price: `${quote.amount} ${unit}`, tips: translateMessage("平台售价，按实际用量结算") };
   }
   const { provider } = await configuredProvider(request, mediaType, signal, directory);
   if (!provider.getPrice) return null;
@@ -294,13 +295,14 @@ async function executeMedia(
   }
   let finish = () => {};
   const resumeAssets = async () => {
-    const { provider } = await configuredProvider(request, mediaType, signal, directory, data => task!.save({ providerData: data }), true, modelRouteCipher);
+    const { provider, singlePointImage } = await configuredProvider(request, mediaType, signal, directory, data => task!.save({ providerData: data }), true, modelRouteCipher);
     if (!checkpoint?.providerData || !provider.resumeTask) invalid("该任务没有可恢复的供应商凭据，不能重新提交生成");
     requireGenerationMode(task);
     finish();
     if (!modelRouteCipher) finish = beginGeneration(provider);
     // 恢复只使用已保存的凭据，不重新读取参考文件、预处理或提交生成。
-    return provider.resumeTask(checkpoint.providerData);
+    const assets = await provider.resumeTask(checkpoint.providerData);
+    return singlePointImage && Array.isArray(assets) ? assets.slice(0, 1) : assets;
   };
   const written: string[] = [];
   const result: GeneratedMedia[] = [];
@@ -310,7 +312,7 @@ async function executeMedia(
     if (task?.resume) {
       assets = checkpoint?.assets ?? await resumeAssets();
     } else {
-      const { provider, request: upstreamRequest } = await configuredProvider(request, mediaType, signal, directory,
+      const { provider, request: upstreamRequest, singlePointImage } = await configuredProvider(request, mediaType, signal, directory,
         task ? data => task.save({ providerData: data }) : undefined, false, modelRouteCipher);
       const generate = mediaType === "image" ? provider.generateImage : mediaType === "video" ? provider.generateVideo : provider.generateAudio;
       if (typeof generate !== "function") invalid(t`此供应商不支持${translateMessage({ image: "图片", video: "视频", audio: "音频" }[mediaType])}生成`);
@@ -323,7 +325,8 @@ async function executeMedia(
       if (!modelRouteCipher) finish = beginGeneration(provider);
       markSubmitted();
       assets = type === "audio" ? await provider.generateAudio!(parameters as AudioRequest)
-        : type === "image" ? await provider.generateImage!(parameters as ImageRequest) : await provider.generateVideo!(parameters as VideoRequest);
+        : type === "image" ? await provider.generateImage!({ ...parameters as ImageRequest, ...(singlePointImage ? { n: 1 } : {}) }) : await provider.generateVideo!(parameters as VideoRequest);
+      if (singlePointImage && Array.isArray(assets)) assets = assets.slice(0, 1);
     }
     if (!Array.isArray(assets) || !assets.length) invalid("供应商未返回生成结果");
     if (checkpoint?.assetCount !== undefined && checkpoint.assetCount !== assets.length) invalid("恢复任务的结果数量发生变化");

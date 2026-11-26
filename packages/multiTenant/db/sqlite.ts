@@ -1,8 +1,8 @@
 import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import { and, asc, count, desc, eq, getTableColumns, sql } from "drizzle-orm";
-import { sqliteAdmin, sqliteBillingLedger, sqliteModelRouting, sqliteSettings, sqliteSourceMapping, sqliteUser, sqliteWallet, sqliteWebSession } from "./schema";
-import type { AdminDatabase } from "./schema";
+import { sqliteAdmin, sqliteBillingLedger, sqliteModelRouting, sqlitePointsOrder, sqliteSettings, sqliteSourceMapping, sqliteUser, sqliteWallet, sqliteWebSession } from "./schema";
+import type { AdminDatabase, WalletRecord } from "./schema";
 import { maxWalletMicros, validateWalletAmount, walletBalanceOverflow, walletSettlementExceeded, walletStateConflict } from "./billing";
 
 export function connectSqlite(file: string): AdminDatabase {
@@ -12,7 +12,7 @@ export function connectSqlite(file: string): AdminDatabase {
   let initialized = false;
   function columns() { return db.all<{ name: string }>(sql`PRAGMA table_info("multiTenantAdmin")`); }
   const insufficientWallet = Symbol("insufficientWallet");
-  function readWallet(userId: string, currency: "CNY" | "USD") {
+  function readWallet(userId: string, currency: WalletRecord["currency"]) {
     const wallet = db.select().from(sqliteWallet).where(and(eq(sqliteWallet.userId, userId), eq(sqliteWallet.currency, currency))).get();
     if (!wallet || !Number.isSafeInteger(wallet.balanceMicros) || !Number.isSafeInteger(wallet.reservedMicros)
       || wallet.reservedMicros < 0 || wallet.balanceMicros < wallet.reservedMicros || wallet.balanceMicros > maxWalletMicros) walletStateConflict();
@@ -92,29 +92,51 @@ export function connectSqlite(file: string): AdminDatabase {
         .returning({ id: sqliteModelRouting.id }).get() !== undefined;
     },
     async initializeBilling() {
-      db.run(sql`CREATE TABLE IF NOT EXISTS "multiTenantWallet" (
-        "userId" TEXT NOT NULL,
-        "currency" TEXT NOT NULL CHECK ("currency" IN ('CNY', 'USD')),
-        "balanceMicros" INTEGER NOT NULL DEFAULT 0 CHECK ("balanceMicros" BETWEEN 0 AND 9007199254740991),
-        "reservedMicros" INTEGER NOT NULL DEFAULT 0 CHECK ("reservedMicros" >= 0 AND "reservedMicros" <= "balanceMicros"),
-        PRIMARY KEY ("userId", "currency")
-      )`);
-      db.run(sql`CREATE TABLE IF NOT EXISTS "multiTenantBillingLedger" (
-        "requestId" TEXT PRIMARY KEY NOT NULL,
-        "userId" TEXT NOT NULL,
-        "currency" TEXT NOT NULL CHECK ("currency" IN ('CNY', 'USD')),
-        "kind" TEXT NOT NULL CHECK ("kind" IN ('credit', 'model')),
-        "status" TEXT NOT NULL CHECK ("status" IN ('reserved', 'settled', 'released')),
-        "requestHash" TEXT NOT NULL,
-        "reservedMicros" INTEGER NOT NULL DEFAULT 0 CHECK ("reservedMicros" BETWEEN 0 AND 9007199254740991),
-        "amountMicros" INTEGER NOT NULL DEFAULT 0 CHECK ("amountMicros" BETWEEN 0 AND 9007199254740991),
-        "details" TEXT NOT NULL,
-        "usage" TEXT,
-        "createdAt" INTEGER NOT NULL,
-        "updatedAt" INTEGER NOT NULL
-      )`);
-      db.run(sql`CREATE INDEX IF NOT EXISTS "multiTenantBillingLedgerUserCreatedAt"
-        ON "multiTenantBillingLedger" ("userId", "createdAt")`);
+      client.transaction(() => {
+        const tableSql = client.query<{ sql: string }, [string]>("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?");
+        const walletTable = tableSql.get("multiTenantWallet");
+        const ledgerTable = tableSql.get("multiTenantBillingLedger");
+        const migrateWallet = walletTable && !walletTable.sql.includes("'POINTS'");
+        const migrateLedger = ledgerTable && !ledgerTable.sql.includes("'POINTS'");
+        // 保留旧表作为账本迁移前的副本，并在同一事务内复制数据。
+        if (migrateWallet) db.run(sql`ALTER TABLE "multiTenantWallet" RENAME TO "multiTenantWalletBeforePoints"`);
+        if (migrateLedger) db.run(sql`ALTER TABLE "multiTenantBillingLedger" RENAME TO "multiTenantBillingLedgerBeforePoints"`);
+        db.run(sql`CREATE TABLE IF NOT EXISTS "multiTenantWallet" (
+          "userId" TEXT NOT NULL,
+          "currency" TEXT NOT NULL CHECK ("currency" IN ('CNY', 'USD', 'POINTS')),
+          "balanceMicros" INTEGER NOT NULL DEFAULT 0 CHECK ("balanceMicros" BETWEEN 0 AND 9007199254740991),
+          "reservedMicros" INTEGER NOT NULL DEFAULT 0 CHECK ("reservedMicros" >= 0 AND "reservedMicros" <= "balanceMicros"),
+          PRIMARY KEY ("userId", "currency")
+        )`);
+        db.run(sql`CREATE TABLE IF NOT EXISTS "multiTenantBillingLedger" (
+          "requestId" TEXT PRIMARY KEY NOT NULL,
+          "userId" TEXT NOT NULL,
+          "currency" TEXT NOT NULL CHECK ("currency" IN ('CNY', 'USD', 'POINTS')),
+          "kind" TEXT NOT NULL CHECK ("kind" IN ('credit', 'model')),
+          "status" TEXT NOT NULL CHECK ("status" IN ('reserved', 'settled', 'released')),
+          "requestHash" TEXT NOT NULL,
+          "reservedMicros" INTEGER NOT NULL DEFAULT 0 CHECK ("reservedMicros" BETWEEN 0 AND 9007199254740991),
+          "amountMicros" INTEGER NOT NULL DEFAULT 0 CHECK ("amountMicros" BETWEEN 0 AND 9007199254740991),
+          "details" TEXT NOT NULL,
+          "usage" TEXT,
+          "createdAt" INTEGER NOT NULL,
+          "updatedAt" INTEGER NOT NULL
+        )`);
+        if (migrateWallet) db.run(sql`INSERT INTO "multiTenantWallet" SELECT * FROM "multiTenantWalletBeforePoints"`);
+        if (migrateLedger) db.run(sql`INSERT INTO "multiTenantBillingLedger" SELECT * FROM "multiTenantBillingLedgerBeforePoints"`);
+        db.run(sql`CREATE INDEX IF NOT EXISTS "multiTenantBillingLedgerPointsUserCreatedAt"
+          ON "multiTenantBillingLedger" ("userId", "createdAt")`);
+        db.run(sql`CREATE TABLE IF NOT EXISTS "kairosPointsOrder" (
+          "id" TEXT PRIMARY KEY NOT NULL, "creditId" TEXT NOT NULL UNIQUE, "userId" TEXT NOT NULL, "packId" TEXT NOT NULL,
+          "amountFen" INTEGER NOT NULL CHECK ("amountFen" > 0), "points" INTEGER NOT NULL CHECK ("points" > 0), "createdAt" INTEGER NOT NULL
+        )`);
+      }).immediate();
+    },
+    async createPointsOrder(order) {
+      db.insert(sqlitePointsOrder).values(order).onConflictDoNothing({ target: sqlitePointsOrder.id }).run();
+    },
+    async getPointsOrder(id) {
+      return db.select().from(sqlitePointsOrder).where(eq(sqlitePointsOrder.id, id)).get();
     },
     async getWallets(userId) {
       try { return db.select().from(sqliteWallet).where(eq(sqliteWallet.userId, userId)).all(); }

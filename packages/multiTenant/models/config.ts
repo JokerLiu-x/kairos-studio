@@ -4,17 +4,18 @@ export const modelAmountSchema = z.string().regex(/^(?:0|[1-9]\d{0,9})(?:\.\d{1,
   .refine(value => BigInt(value.split(".")[0]!) < 1000000000n
     || BigInt(value.split(".")[0]!) === 1000000000n && /^0*$/.test(value.split(".")[1] ?? ""), "模型价格不能超过 1000000000"));
 const currencySchema = z.enum(["CNY", "USD"]);
+const saleCurrencySchema = z.enum(["CNY", "USD", "POINTS"]);
 const publicModelIdMessage = "对外模型 ID 须为 1 到 128 个字符，以字母或数字开头，仅支持字母、数字、点、下划线、冒号和短横线";
 export const publicModelIdSchema = z.string().trim().min(1, publicModelIdMessage).max(128, publicModelIdMessage)
   .regex(/^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/, publicModelIdMessage);
 
 export const modelPriceSchema = z.discriminatedUnion("mode", [
   z.strictObject({
-    mode: z.literal("perMillionTokens"), currency: currencySchema,
+    mode: z.literal("perMillionTokens"), currency: saleCurrencySchema,
     input: modelAmountSchema, output: modelAmountSchema, cacheRead: modelAmountSchema, cacheWrite: modelAmountSchema,
   }),
-  z.strictObject({ mode: z.literal("perRequest"), currency: currencySchema, amount: modelAmountSchema }),
-  z.strictObject({ mode: z.literal("perSecond"), currency: currencySchema, amount: modelAmountSchema }),
+  z.strictObject({ mode: z.literal("perRequest"), currency: saleCurrencySchema, amount: modelAmountSchema }),
+  z.strictObject({ mode: z.literal("perSecond"), currency: saleCurrencySchema, amount: modelAmountSchema }),
 ]);
 
 export const modelRouteSchema = z.strictObject({
@@ -27,7 +28,7 @@ export const modelRouteSchema = z.strictObject({
   providerId: z.string().trim().min(1).max(96),
   upstreamModelId: z.string().trim().min(1).max(256),
   salePrice: modelPriceSchema,
-  costPrice: modelPriceSchema.nullable(),
+  costPrice: modelPriceSchema.refine(price => currencySchema.safeParse(price.currency).success, "上游成本必须使用 CNY 或 USD").nullable(),
 }).refine(route => [route.salePrice, route.costPrice].filter(price => price !== null).every(price =>
   route.type === "text" ? price.mode === "perMillionTokens"
     : route.type === "video" ? price.mode !== "perMillionTokens" : price.mode === "perRequest"),

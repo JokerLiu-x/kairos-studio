@@ -14,9 +14,13 @@ import records from "./records.webp";
 import waves from "./waves.webp";
 import soda from "./soda.webp";
 import explorer from "./explorer.webp";
+import harborTram from "./harborTram.jpg";
+import mossPerfume from "./mossPerfume.jpg";
+import paperGlider from "./paperGlider.jpg";
 import { editorialInspirations } from "./editorialInspirations";
+import { kairosInspirations } from "./kairosInspirations";
 
-export const categories = ["全部", "电影感", "产品摄影", "动画插画", "人物", "风景建筑"] as const;
+export const categories = ["全部", "电商宣传", "电影感", "产品摄影", "动画插画", "人物", "风景建筑", "国风意境", "科幻概念", "美食静物", "自然微距", "抽象艺术"] as const;
 export type InspirationCategory = (typeof categories)[number];
 export type Inspiration = {
   title: string;
@@ -50,3 +54,9 @@ export const inspirations: Inspiration[] = [
 inspirations.splice(1, 0, ...editorialInspirations.slice(0, 3));
 inspirations.splice(6, 0, ...editorialInspirations.slice(6, 8), ...editorialInspirations.slice(12, 14), ...editorialInspirations.slice(18, 20));
 inspirations.push(...editorialInspirations.slice(3, 6), ...editorialInspirations.slice(8, 12), ...editorialInspirations.slice(14, 18), ...editorialInspirations.slice(20));
+inspirations.unshift(
+  ...kairosInspirations,
+  { title: "海港末班车", category: "电影感", url: harborTram, shape: "wide", prompt: "午夜的海港小镇，一辆亮着琥珀色车灯的电车沿湿漉漉的沿海街道驶来。用平视广角，电车在画面右半边，左侧留给海面和薄雾。以深青色夜景衬暖色车窗，路面保留拉长的倒影和细微胶片颗粒。", motion: "固定街边机位，电车从右向左缓缓经过，车灯在湿路上扫出一道暖光。海雾轻微移动，保持楼房和轨道位置，不切镜。" },
+  { title: "苔石香氛", category: "产品摄影", url: mossPerfume, shape: "wide", prompt: "深色火山石上摆一瓶无字的苔绿磨砂玻璃香水，瓶身为圆角长方形。用一道暖侧光照亮瓶壁、凝结水珠和石材孔隙，森林绿背景柔和退暗。主体居中，保留瓶底与石面的接触阴影。" },
+  { title: "折纸飞行员", category: "动画插画", url: paperGlider, shape: "wide", prompt: "戴赭黄色围巾的小飞蛾驾驶蓝绿色纸滑翔机，从折纸小镇的靛蓝屋顶上飞过。用午后斜光区分毛毡、纸纤维和瓦片层次，保持飞蛾的翅膀轮廓与手工定格动画的质感。", motion: "摄影机平滑跟随滑翔机掠过屋顶，机身轻轻倾斜一次，飞行员的围巾随风飘动。保持纸翼形状和小镇的手工纹理。" },
+);

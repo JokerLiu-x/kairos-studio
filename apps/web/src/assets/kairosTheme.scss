@@ -1,0 +1,37 @@
+:root {
+  --kairos-page: #f6f5f1;
+  --kairos-text: #191c21;
+  --kairos-muted: #535962;
+  --kairos-line: rgb(20 25 32 / 9%);
+  --kairos-edge: rgb(20 25 32 / 17%);
+  --kairos-panel: rgb(255 255 255 / 75%);
+  --kairos-solid: #fff;
+  --kairos-raised: #eeefee;
+  --kairos-hover: #e7e9ec;
+  --kairos-blue: #a9d4f8;
+  --kairos-blue-hover: #c2e2fb;
+  --kairos-on-blue: #142437;
+  --kairos-focus: #497fb0;
+  --kairos-glow: rgb(118 164 209 / 10%);
+  --kairos-highlight: rgb(145 187 230 / 32%);
+  --kairos-shadow: 0 16px 56px rgb(24 35 49 / 8%);
+  --kairos-error: #a33329;
+  --kairos-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.87' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Cpath d='M0 0h160v160H0z' filter='url(%23grain)' opacity='.025'/%3E%3C/svg%3E");
+}
+
+html.dark {
+  --kairos-page: #0a0b0d;
+  --kairos-text: #f0f2f5;
+  --kairos-muted: #aeb5bf;
+  --kairos-line: rgb(255 255 255 / 8%);
+  --kairos-edge: rgb(255 255 255 / 16%);
+  --kairos-panel: rgb(22 24 29 / 70%);
+  --kairos-solid: #191b20;
+  --kairos-raised: #202329;
+  --kairos-hover: #282c34;
+  --kairos-focus: #8fc2ed;
+  --kairos-glow: rgb(128 169 213 / 9%);
+  --kairos-highlight: rgb(130 179 229 / 22%);
+  --kairos-shadow: 0 16px 56px rgb(0 0 0 / 28%);
+  --kairos-error: #ffada0;
+}

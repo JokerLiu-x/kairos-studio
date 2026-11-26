@@ -40,8 +40,9 @@ const secretField = /^keys?$|^host(?:name)?$|^port$|^protocol$|^proxy$|^model(?:
 function fail(message: string, status = 400): never { throw Object.assign(new Error(message), { status }); }
 
 export function formatModelPrice(price: ModelPrice) {
-  if (price.mode === "perMillionTokens") return `${translateMessage("输入")} ${price.input} / ${translateMessage("输出")} ${price.output} ${price.currency}/1M Token`;
-  return `${price.amount} ${price.currency}/${translateMessage(price.mode === "perRequest" ? "次" : "秒")}`;
+  const unit = price.currency === "POINTS" ? "积分" : price.currency;
+  if (price.mode === "perMillionTokens") return `${translateMessage("输入")} ${price.input} / ${translateMessage("输出")} ${price.output} ${unit}/1M Token`;
+  return `${price.amount} ${unit}/${translateMessage(price.mode === "perRequest" ? "次" : "秒")}`;
 }
 
 export async function loadModelCloud(token: string, signal?: AbortSignal): Promise<Cloud> {

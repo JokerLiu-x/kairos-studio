@@ -1,34 +1,45 @@
 <template>
   <div class="studio">
     <header class="topBar">
-      <router-link class="wordmark" to="/studio">Toonflow</router-link>
+      <router-link class="wordmark" to="/studio"><img class="brandMark" :src="kairosMark" alt="" />Kairos</router-link>
       <nav class="mainNav" aria-label="创作导航">
-        <router-link v-for="item in navigation" :key="item.name" :to="{ name: item.name }" :class="{ currentNav: item.name === 'studio' && onCreate }" :aria-label="item.label" :title="item.label">
+        <router-link v-for="item in navigation" :key="item.name" :to="{ name: item.name }" :aria-label="item.label" :title="item.label">
           <component :is="item.icon" :size="20" aria-hidden="true" />
-          <span v-if="route.name === item.name || (item.name === 'studio' && onCreate)">{{ item.label }}</span>
+          <span>{{ item.label }}</span>
         </router-link>
       </nav>
-      <router-link class="iconButton settingsLink" :to="{ name: 'studioSettings' }" aria-label="设置" title="设置"><icon-settings :size="21" /></router-link>
+      <div class="headerActions">
+        <button class="iconButton" type="button" :aria-label="isDarkTheme ? '切换浅色' : '切换深色'" :title="isDarkTheme ? '切换浅色' : '切换深色'" :disabled="savingTheme" @click="toggleTheme">
+          <component :is="isDarkTheme ? IconSun : IconMoon" :size="18" aria-hidden="true" />
+        </button>
+        <router-link class="iconButton" :to="{ name: 'studioSettings' }" aria-label="设置" title="设置"><icon-settings :size="19" /></router-link>
+      </div>
     </header>
 
-    <main class="page" :class="{ galleryPage: route.name === 'studio' }">
+    <main class="page" :class="{ galleryPage: route.name === 'studio', generationPage: onCreate }">
       <template v-if="showComposer">
         <template v-if="!onCreate">
           <section class="exploreIntro" aria-labelledby="exploreTitle">
             <div>
-              <span class="exploreKicker"><span></span> TOONFLOW / EXPLORE</span>
-              <h1 id="exploreTitle">灵感图库</h1>
-              <p>从一帧画面出发，找到下一次创作的方向。</p>
+              <h1 id="exploreTitle">创作灵感</h1>
+              <p>找商品主图、活动横幅或故事画面，将灵感直接带入创作。</p>
             </div>
             <router-link class="darkButton" to="/studio/create"><icon-sparkles :size="17" />开始创作</router-link>
           </section>
-          <section class="featuredWall" aria-label="精选专题">
-            <button v-for="(feature, index) in featured" :key="feature.category" class="featuredCard" type="button" @click="showCollection(feature.category)">
-              <img :src="feature.image" alt="" decoding="async" />
-              <span class="featureIndex">精选 / 0{{ index + 1 }}</span>
-              <span class="featureCaption"><strong>{{ feature.title }}</strong><small>{{ feature.subtitle }}</small></span>
-              <span class="featureArrow"><icon-arrow-up-right :size="18" /></span>
-            </button>
+          <section ref="featuredSection" class="featuredSection" aria-labelledby="featuredTitle">
+            <div class="featuredHeading">
+              <h2 id="featuredTitle">精选参考</h2>
+              <div class="featuredActions">
+                <button class="pillButton rotationToggle" type="button" @click="toggleInspirationRotation">{{ rotationPaused ? "恢复轮换" : "暂停轮换" }}</button>
+                <button class="pillButton" type="button" @click="refreshInspirations"><icon-refresh :size="16" aria-hidden="true" />换一批</button>
+              </div>
+            </div>
+            <div class="featuredWall">
+              <button v-for="item in featured" :key="item.url" class="featuredCard" type="button" @click="openInspiration(item)">
+                <img :src="item.url" alt="" :style="{ objectPosition: item.position }" decoding="async" />
+                <span class="featureCaption"><small>{{ item.category }}</small><strong>{{ item.title }}</strong></span>
+              </button>
+            </div>
           </section>
           <section ref="exploreResults" class="exploreResults" aria-labelledby="discoverTitle">
             <div class="discoverHeading"><h2 id="discoverTitle">发现灵感</h2><span>{{ visibleInspirations.length }} 张</span></div>
@@ -37,53 +48,48 @@
                 <button v-for="category in categories" :key="category" type="button" :aria-pressed="activeCategory === category" @click="activeCategory = category">{{ category }}</button>
               </div>
               <label class="librarySearch exploreSearch"><icon-search :size="17" /><input v-model.trim="inspirationQuery" type="search" aria-label="搜索灵感" placeholder="搜题材、质感或关键词" /></label>
+              <button class="pillButton savedFilter" type="button" :aria-pressed="savedOnly" @click="savedOnly = !savedOnly"><icon-star :size="16" />我的收藏</button>
             </div>
             <div v-if="visibleInspirations.length" class="gallery" aria-label="灵感示例">
-              <button v-for="(item, index) in visibleInspirations" :key="item.title" class="galleryCard" :class="item.shape" type="button" @click="openInspiration(item)">
+              <button v-for="(item, index) in shownInspirations" :key="item.url" class="galleryCard" :class="item.shape" type="button" @click="openInspiration(item)">
                 <img :src="item.url" alt="" :style="{ objectPosition: item.position }" :loading="index < 8 ? 'eager' : 'lazy'" decoding="async" />
                 <span class="galleryCaption"><strong>{{ item.title }}</strong><small>{{ item.category }}</small></span>
-                <span class="viewInspiration" aria-hidden="true"><icon-arrow-up-right :size="17" /></span>
               </button>
             </div>
-            <div v-else class="emptyState"><h2>没有匹配的灵感</h2><button class="pillButton" type="button" @click="resetInspirationFilters">清除筛选</button></div>
+            <div v-else class="emptyState"><h2>{{ savedOnly && !savedInspirations.size ? "还没有收藏的灵感" : "没有匹配的灵感" }}</h2><button class="pillButton" type="button" @click="resetInspirationFilters">查看全部</button></div>
+            <div v-if="shownInspirations.length < visibleInspirations.length" class="galleryMore"><button class="pillButton" type="button" @click="inspirationLimit += galleryPageSize">加载更多</button></div>
           </section>
         </template>
         <section v-else class="creationStage" aria-labelledby="creationTitle">
           <div class="stageHeading">
-            <div><span class="stageEyebrow">快速创作</span><h1 id="creationTitle">生成工作台</h1></div>
-            <router-link class="pillButton" to="/studio/works">查看生成记录 <icon-arrow-up-right :size="16" /></router-link>
+            <div><h1 id="creationTitle">生成工作台</h1><p>从提示词或参考图开始，生成图片和视频。</p></div>
+            <router-link class="pillButton" to="/studio/works"><icon-photo :size="16" />我的作品</router-link>
           </div>
-          <div class="stagePreview" :class="{ waiting: generating, stageFailed: generationError && !generating }" :aria-busy="generating">
+          <div class="stagePreview" :class="{ waiting: generating, stageFailed: generationError && !generating, idlePreview: !generating && !pendingTask && !latest && !generationError }" :aria-busy="generating">
             <template v-if="stageUrl && latest && !generating">
               <img v-if="latest.mediaType === 'image'" :src="stageUrl" alt="生成图片" />
               <video v-else :src="stageUrl" controls playsinline aria-label="生成视频" />
             </template>
             <div v-else class="stageContent">
+              <img v-if="!generating && !pendingTask && !latest && !generationError && previewInspiration" class="previewCover" :src="previewInspiration.url" alt="" />
               <span class="stageOrb"><icon-sparkles :size="28" aria-hidden="true" /></span>
               <h2 role="status">{{ stageTitle }}</h2>
-              <p>{{ generationError || stageError || (generating ? "完成后会在这里显示，并保存到「我的作品」。" : latest ? "正在读取生成文件…" : "在下方输入提示词，开始新的创作。") }}</p>
+              <p>{{ generationError || stageError || (generating ? "完成后会在这里显示，并保存到「我的作品」。" : latest ? "正在读取生成文件…" : "生成的图片和视频会显示在这里。") }}</p>
               <button v-if="pendingTask && !generating" class="pillButton" type="button" @click="resume">查询任务</button>
               <button v-else-if="generationError" class="pillButton" type="button" @click="expandComposer">调整提示词</button>
             </div>
           </div>
-          <div v-if="!generating && (stagePrompt || stageUrl)" class="stageMeta">
-            <p v-if="stagePrompt">{{ stagePrompt }}</p>
-            <div v-if="stageUrl && latest" class="stageActions">
-              <a class="pillButton" :href="stageUrl" :download="latest.path.split('/').at(-1)">下载</a>
-              <button v-if="latest.prompt" class="pillButton" type="button" @click="reuseWork(latest)">再次编辑</button>
-              <button v-if="canUseAsReference(latest)" class="darkButton" type="button" @click="referenceWork(latest, 'video')">让它动起来</button>
-            </div>
-          </div>
         </section>
 
-        <section ref="composer" class="composer" :class="{ collapsed: composerCollapsed, stageComposer: onCreate }" aria-label="快速创作">
-          <div class="composerExpand" :inert="composerCollapsed">
+        <section ref="composer" class="composer" :class="{ stageComposer: onCreate }" :aria-label="onCreate ? '生成参数' : '快速创作'" @dragover.prevent @drop.prevent="dropReferences">
+          <transition name="dockPanel">
+          <div v-show="!composerCollapsed" class="composerExpand" :inert="composerCollapsed">
             <div class="composerContent">
               <div class="composerHeader">
                 <div class="modes" :class="{ videoSelected: mode === 'video' }" role="group" aria-label="创作类型">
                   <button v-for="option in modes" :key="option.id" type="button" :aria-pressed="mode === option.id" @click="changeMode(option.id)">{{ option.label }}</button>
                 </div>
-                <button class="dockToggle" type="button" aria-label="收起生成框" title="收起生成框" @click="minimizeComposer"><icon-chevron-down :size="19" /></button>
+                <button v-if="!onCreate" class="dockToggle" type="button" aria-label="收起生成框" title="收起生成框" @click="minimizeComposer"><icon-chevron-down :size="19" /></button>
               </div>
               <div class="composeEntry" :class="{ multipleReferences: currentReferences.length > 1 }">
                 <div class="attachments" aria-label="参考素材">
@@ -93,35 +99,56 @@
                     <button type="button" class="removeReference" :aria-label="`移除${referenceLabel(index)}`" @click="removeReference(index)"><icon-x :size="15" /></button>
                   </div>
                   <button v-if="currentReferences.length < referenceLimit" class="upload" type="button" @click="openReferencePicker">
-                    <icon-photo-plus :size="19" /> {{ mode === "video" ? "起始画面" : "添加参考图" }}
+                    <icon-photo-plus :size="19" />{{ nextReferenceLabel }}
                   </button>
                 </div>
-                <textarea ref="promptInput" v-model="prompt" class="composePrompt" rows="2" maxlength="10000" aria-label="提示词" :placeholder="promptPlaceholder" @paste="pasteReference" />
+                <textarea ref="promptInput" v-model="prompt" class="composePrompt" rows="3" maxlength="10000" aria-label="提示词" :placeholder="promptPlaceholder" @paste="pasteReference" @keydown.ctrl.enter.prevent="submitGeneration" @keydown.meta.enter.prevent="submitGeneration" />
               </div>
               <div class="composeFooter">
                 <div class="composeOptions">
-                  <span><icon-photo v-if="mode === 'image'" :size="17" /><icon-video v-else :size="17" />{{ choices[mode]?.label || (mode === "image" ? "Muse Image" : "Muse Video") }}</span>
+                  <label v-if="modelsByMode[mode].length" class="modelControl">
+                    <component :is="mode === 'image' ? IconPhoto : IconVideo" :size="17" aria-hidden="true" />
+                    <select v-model="selectedModelKey" aria-label="选择模型">
+                      <option v-for="model in modelsByMode[mode]" :key="getNodeModelKey(model)" :value="getNodeModelKey(model)">{{ model.label }} · {{ model.providerLabel }}</option>
+                    </select><icon-chevron-down :size="12" aria-hidden="true" />
+                  </label>
+                  <router-link v-else class="modelSetup" :to="{ name: 'studioSettings' }"><icon-settings :size="17" />创作模型</router-link>
                   <parameterMenu v-model="ratio" label="画面比例" :options="ratiosFor(mode)" :icon="IconAspectRatio" />
-                  <parameterMenu v-if="mode === 'video'" v-model="duration" label="时长" :options="quickDurations" :icon="IconClock" unit="秒" />
+                  <parameterMenu v-if="mode === 'video'" v-model="duration" label="时长" :options="durations" :icon="IconClock" unit="秒" />
+                  <parameterMenu v-if="mode === 'video' && resolutions.length" v-model="resolution" label="分辨率" :options="resolutions" :icon="IconDeviceDesktop" />
                 </div>
                 <div class="composeAction">
                   <span class="composeNote" role="status" id="generationStatus">{{ statusLabel }}</span>
                   <router-link v-if="latest && !generating && !onCreate" class="pillButton resultButton" to="/studio/create">查看结果</router-link>
                   <button v-if="pendingTask && !generating && !onCreate" class="pillButton resultButton" type="button" @click="resume">查询任务</button>
-                  <button class="sendButton" type="button" :disabled="!canGenerate" aria-label="生成" aria-describedby="generationStatus" @click="submitGeneration"><icon-arrow-up :size="23" /></button>
+                  <button class="sendButton" type="button" :disabled="!canGenerate" aria-describedby="generationStatus" @click="submitGeneration"><icon-sparkles :size="18" /><span>{{ generationPoints ? `生成 · ${generationPoints} 积分` : "生成" }}</span></button>
                 </div>
               </div>
               <p v-if="referenceError || (!onCreate && generationError)" class="errorNote" role="alert">{{ referenceError || generationError }}</p>
             </div>
           </div>
-          <div class="composerMini" :inert="!composerCollapsed">
+          </transition>
+          <transition name="dockPill">
+          <div v-if="!onCreate" v-show="composerCollapsed" class="composerMini" :inert="!composerCollapsed">
             <button ref="miniButton" class="miniButton" type="button" aria-label="展开生成框" @click="expandComposer">
               <span class="miniIcon"><icon-sparkles :size="17" /></span>
               <span class="miniLabel">{{ statusLabel || prompt.trim() || (currentReferences.length ? "继续编辑参考图" : "描述你想创作的画面…") }}</span>
               <icon-chevron-up :size="17" aria-hidden="true" />
             </button>
           </div>
+          </transition>
         </section>
+        <section v-if="onCreate && !generating && (stagePrompt || stageUrl)" class="stageSummary" aria-label="生成参数与操作">
+          <div class="stageMeta">
+            <p v-if="stagePrompt">{{ stagePrompt }}</p>
+            <div v-if="stageUrl && latest" class="stageActions">
+              <a class="pillButton" :href="stageUrl" :download="latest.path.split('/').at(-1)">下载</a>
+              <button v-if="latest.prompt" class="pillButton" type="button" @click="reuseWork(latest)">再次编辑</button>
+              <button v-if="canUseAsReference(latest)" class="darkButton" type="button" @click="referenceWork(latest, 'video')">让它动起来</button>
+            </div>
+          </div>
+        </section>
+
       </template>
 
       <template v-else-if="route.name === 'studioWorks'">
@@ -223,6 +250,8 @@
         </section>
       </template>
 
+      <pointsShop v-else-if="route.name === 'studioPoints'" />
+
       <template v-else>
         <div class="pageHeading"><h1>设置</h1></div>
         <div class="settingsGrid">
@@ -237,11 +266,12 @@
             </template>
             <template v-else>
               <h2>创作模型</h2>
-              <p>模型由网站统一提供，你无需配置接口、密钥或运行后端。</p>
+              <p>{{ publicWeb || multiTenantEnabled ? "创作模型由站点管理员统一配置。" : "在供应商配置中填写 API 地址和密钥，然后在生成页选择模型。" }}</p>
+              <mediaModelSettings v-if="!publicWeb && !multiTenantEnabled" visible />
               <div v-for="option in modes" :key="option.id" class="modelRow">
                 <span class="modelIcon"><component :is="option.icon" :size="22" /></span>
-                <span><strong>{{ option.id === "image" ? "Muse Image" : "Muse Video" }}</strong><small>{{ option.label }}生成</small></span>
-                <span class="modelStatus">{{ catalogLoading ? "读取中" : choices[option.id] ? "已接入" : "未开放" }}</span>
+                <span><strong>{{ option.label }}生成</strong><small>{{ modelsByMode[option.id].map(model => model.label).join("、") }}</small></span>
+                <span class="modelStatus">{{ catalogLoading ? "读取中" : modelsByMode[option.id].length ? `${modelsByMode[option.id].length} 个模型` : "无可选模型" }}</span>
               </div>
             </template>
           </section>
@@ -257,6 +287,9 @@
           <header class="recipeTitle">
             <span>{{ selected.category }}</span>
             <h2 id="inspirationTitle">{{ selected.title }}</h2>
+            <button class="pillButton savedFilter" type="button" :aria-pressed="savedInspirations.has(inspirationKey(selected))" @click="toggleSavedInspiration(selected)">
+              <icon-star :size="16" />{{ savedInspirations.has(inspirationKey(selected)) ? "已收藏" : "收藏灵感" }}
+            </button>
           </header>
           <section class="recipePrompt" :aria-label="recipeMode === 'image' ? '画面提示词' : '运镜提示词'">
             <div class="recipeToolbar">
@@ -274,8 +307,8 @@
             <p v-if="copyFailed" class="recipeCopyError" role="status">剪贴板不可用，可选中文本手动复制。</p>
           </section>
           <footer class="recipeActions">
-            <button type="button" :class="{ primaryRecipeAction: recipeMode === 'image' }" @click="useInspiration('image')"><icon-photo-plus :size="17" aria-hidden="true" />用作参考图</button>
-            <button type="button" :class="{ primaryRecipeAction: recipeMode === 'video' }" @click="useInspiration('video')"><icon-player-play :size="17" aria-hidden="true" />让它动起来</button>
+            <button type="button" @click="useInspiration(recipeMode, false)">使用提示词</button>
+            <button type="button" class="primaryRecipeAction" @click="useInspiration(recipeMode, true)"><icon-photo-plus :size="17" aria-hidden="true" />使用提示词与参考图</button>
           </footer>
         </div>
       </article>
@@ -332,7 +365,7 @@
     <dialog ref="referenceDialog" class="detailDialog referenceDialog" aria-labelledby="referenceTitle" @click.self="referenceDialog?.close()">
       <div class="referencePicker">
         <header>
-          <div><span class="stageEyebrow">参考素材</span><h2 id="referenceTitle">{{ mode === "video" ? "选择起始画面" : "添加参考图" }}</h2></div>
+          <div><h2 id="referenceTitle">{{ nextReferenceLabel }}</h2></div>
           <button class="iconButton" type="button" aria-label="关闭" autofocus @click="referenceDialog?.close()"><icon-x :size="19" /></button>
         </header>
         <label class="pickerUpload">
@@ -373,7 +406,10 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { IconArrowRight, IconArrowUp, IconArrowUpRight, IconArrowsSort, IconAspectRatio, IconCheck, IconChevronDown, IconChevronUp, IconClock, IconCopy, IconDownload, IconListCheck, IconMovie, IconPencil, IconPhoto, IconPhotoPlus, IconPlayerPlay, IconPlus, IconSearch, IconSettings, IconSparkles, IconStar, IconTag, IconUser, IconVideo, IconX } from "@tabler/icons-vue";
+import { IconArrowRight, IconArrowUpRight, IconArrowsSort, IconAspectRatio, IconCheck, IconChevronDown, IconChevronUp, IconClock, IconCopy, IconDeviceDesktop, IconDownload, IconLibraryPhoto, IconListCheck, IconMoon, IconMovie, IconPencil, IconPhoto, IconPhotoPlus, IconPlayerPlay, IconPlus, IconRefresh, IconSearch, IconSettings, IconSparkles, IconStar, IconSun, IconTag, IconUser, IconVideo, IconX } from "@tabler/icons-vue";
+import { getNodeModelKey } from "@toonflow/nodes-scaffold/nodeAi";
+import { pointsRates } from "@toonflow/multi-tenant-billing/config";
+import { IconCoins } from "@tabler/icons-vue";
 import { ElMessage } from "element-plus";
 import userAccount from "@toonflow/multi-tenant-user-web/account";
 import projectCover from "@/pages/home/projectCover.vue";
@@ -382,29 +418,52 @@ import saveFile from "@/lib/saveFile";
 import useWorkspaceFiles from "@/lib/workspaceFiles";
 import { writeClipboardText } from "@/lib/clipboard";
 import { currentUser, publicWeb } from "@/stores/multiTenant";
+import { multiTenantEnabled, saveSettings, uiSettings } from "@/stores/settings";
+import mediaModelSettings from "@/components/settings/panels/mediaModel/index.vue";
 import { useWorkspaceStore } from "@/stores/workspace";
 import { categories, inspirations, type Inspiration, type InspirationCategory } from "./inspirations";
-import useQuickMedia, { quickDurations, quickImageSize, quickImageTypes, type QuickMode, type QuickReference, type QuickWork } from "./useQuickMedia";
+import useQuickMedia, { quickImageSize, quickImageTypes, type QuickMode, type QuickReference, type QuickWork } from "./useQuickMedia";
 import workCover from "./workCover.vue";
 import { downloadWorkArchive, workFileName } from "./workDownload";
 import parameterMenu from "./parameterMenu.vue";
-import bookshop from "./bookshop.webp";
-import teaTin from "./teaTin.webp";
-import littleSub from "./littleSub.webp";
+import pointsShop from "./pointsShop.vue";
+import kairosMark from "@/assets/kairosIcon.png";
+import "@/assets/kairosTheme.scss";
 
 const route = useRoute();
 const router = useRouter();
+const savingTheme = ref(false);
+const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
+const systemDarkMode = ref(systemDark.matches);
+const isDarkTheme = computed(() => uiSettings.value.theme === "system" ? systemDarkMode.value : uiSettings.value.theme === "dark");
+
+function updateSystemTheme(event: MediaQueryListEvent) { systemDarkMode.value = event.matches; }
+
+async function toggleTheme() {
+  if (savingTheme.value) return;
+  const theme = isDarkTheme.value ? "light" : "dark";
+  savingTheme.value = true;
+  try {
+    await saveSettings(current => ({ ui: { ...(current.ui as Record<string, unknown> | undefined), theme } }));
+  } catch {
+    ElMessage.error("主题保存失败，请重试。");
+  } finally {
+    savingTheme.value = false;
+  }
+}
 const onCreate = computed(() => route.name === "studioCreate");
 const showComposer = computed(() => route.name === "studio" || onCreate.value);
 const workspaceStore = useWorkspaceStore();
 const navigation = [
-  { name: "studioWorks", label: "我的作品", icon: IconPhoto },
-  { name: "studio", label: "快速创作", icon: IconSparkles },
-  { name: "studioProjects", label: "短剧工作台", icon: IconMovie },
+  { name: "studio", label: "灵感", icon: IconPhoto },
+  { name: "studioCreate", label: "生成", icon: IconSparkles },
+  { name: "studioWorks", label: "作品", icon: IconLibraryPhoto },
+  { name: "studioProjects", label: "画布项目", icon: IconMovie },
+  { name: "studioPoints", label: "积分充值", icon: IconCoins },
 ];
 const modes = [{ id: "image", label: "图片", icon: IconPhoto }, { id: "video", label: "视频", icon: IconVideo }] as const;
 const workFilters = [{ id: "all", label: "全部" }, ...modes, { id: "favorite", label: "收藏" }] as const;
-const { directory, choices, ratiosFor, referenceLimitFor, works, loadingWorks, catalogLoading, workError, generationError, busy: generating, activeMode, latest, pendingTask, loadCatalog, loadWorks, saveWorkDetails, run, restore, resume } = useQuickMedia();
+const { directory, choices, modelsByMode, selectedKeys, durations, resolutionsFor, ratiosFor, referenceLimitFor, supportsReferences, videoReferenceLabel, works, loadingWorks, catalogLoading, workError, generationError, busy: generating, activeMode, latest, pendingTask, loadCatalog, loadWorks, saveWorkDetails, run, restore, resume } = useQuickMedia();
 const workFilter = ref<(typeof workFilters)[number]["id"]>("all");
 const sortOptions = ["最新优先", "最早优先"] as const;
 const workSort = ref<(typeof sortOptions)[number]>("最新优先");
@@ -447,19 +506,71 @@ const workTagsDraft = ref("");
 const workActionError = ref("");
 const activeCategory = ref<InspirationCategory>("全部");
 const inspirationQuery = ref("");
+const galleryPageSize = 24;
+const inspirationLimit = ref(galleryPageSize);
+const savedOnly = ref(false);
+const savedKey = `kairos.inspirations.${currentUser.value?.id ?? "local"}`;
+const savedInspirations = ref(new Set<string>());
+function inspirationKey(item: Inspiration) { return `${item.category}/${item.title}`; }
+
+function toggleSavedInspiration(item: Inspiration) {
+  const next = new Set(savedInspirations.value);
+  const key = inspirationKey(item);
+  if (next.has(key)) next.delete(key);
+  else next.add(key);
+  try { localStorage.setItem(savedKey, JSON.stringify([...next])); }
+  catch { ElMessage.warning("浏览器无法保存收藏，本次打开期间仍可使用。"); }
+  savedInspirations.value = next;
+}
+const featuredSection = ref<HTMLElement>();
 const exploreResults = ref<HTMLElement>();
-const featured = [
-  { title: "镜头里的故事", subtitle: "雨夜、长镜头与电影布光", category: "电影感", image: bookshop },
-  { title: "静物研究所", subtitle: "电商主图与棚拍质感", category: "产品摄影", image: teaTin },
-  { title: "小小异世界", subtitle: "手工定格、绘本与动画", category: "动画插画", image: littleSub },
-] as const;
+const initialBatch = Math.floor(Date.now() / (5 * 60_000));
+const featuredBatch = ref(initialBatch);
+const galleryBatch = ref(initialBatch);
+const rotationPaused = ref(false);
+const featuredPools = categories.slice(2).map(category => inspirations.filter(item => item.category === category)).filter(pool => pool.length);
+const commercePool = inspirations.filter(item => item.category === "电商宣传");
+const featured = computed(() => Array.from({ length: 3 }, (_, slot) => {
+  const sequence = featuredBatch.value * 2 + slot - 1;
+  const pool = slot === 0 ? commercePool : featuredPools[sequence % featuredPools.length]!;
+  const offset = slot === 0 ? featuredBatch.value : Math.floor(sequence / featuredPools.length);
+  return pool[offset % pool.length];
+}).filter((item): item is Inspiration => Boolean(item)));
+let refreshTimer: number | undefined;
 const visibleInspirations = computed(() => {
   const words = inspirationQuery.value.toLowerCase().split(/\s+/).filter(Boolean);
-  return inspirations.filter(item => (activeCategory.value === "全部" || item.category === activeCategory.value)
+  if (!savedOnly.value && activeCategory.value === "全部" && !words.length) {
+    const offset = galleryBatch.value * 5 % inspirations.length;
+    return [...inspirations.slice(offset), ...inspirations.slice(0, offset)];
+  }
+  return inspirations.filter(item => (!savedOnly.value || savedInspirations.value.has(inspirationKey(item)))
+    && (activeCategory.value === "全部" || item.category === activeCategory.value)
     && (!words.length || words.every(word => `${item.title} ${item.category} ${item.prompt} ${item.motion ?? ""}`.toLowerCase().includes(word))));
 });
+const shownInspirations = computed(() => visibleInspirations.value.slice(0, inspirationLimit.value));
+watch([activeCategory, inspirationQuery, savedOnly], () => { inspirationLimit.value = galleryPageSize; });
 const mode = ref<QuickMode>("image");
+const previewPools = {
+  image: inspirations.filter(item => item.shape === "wide"),
+  video: inspirations.filter(item => item.shape === "wide" && item.motion),
+};
+const previewInspiration = computed(() => {
+  const pool = previewPools[mode.value];
+  return pool[featuredBatch.value % pool.length];
+});
 const prompt = ref("");
+const draftKey = `kairos.promptDraft.${currentUser.value?.id ?? "local"}`;
+watch([mode, prompt], ([type, text]) => {
+  try { sessionStorage.setItem(draftKey, JSON.stringify({ mode: type, prompt: text })); }
+  catch { /* 浏览器不提供会话存储时仍可正常编辑。 */ }
+});
+const selectedModelKey = computed({
+  get: () => {
+    const model = choices.value[mode.value];
+    return model ? getNodeModelKey(model) : "";
+  },
+  set: value => { selectedKeys.value[mode.value] = value; },
+});
 const ratiosByMode = ref<Record<QuickMode, string>>({ image: "16:9", video: "16:9" });
 const ratio = computed({
   get: () => {
@@ -469,10 +580,21 @@ const ratio = computed({
   },
   set: value => { ratiosByMode.value[mode.value] = value; },
 });
-const duration = ref(6);
+const durationPreference = ref(6);
+const duration = computed({
+  get: () => durations.value.includes(durationPreference.value) ? durationPreference.value : durations.value[0]!,
+  set: value => { durationPreference.value = value; },
+});
+const resolutions = computed(() => resolutionsFor(duration.value));
+const resolutionPreference = ref("");
+const resolution = computed({
+  get: () => resolutions.value.includes(resolutionPreference.value) ? resolutionPreference.value : resolutions.value[0] ?? "",
+  set: value => { resolutionPreference.value = value; },
+});
 const referencesByMode = ref<Record<QuickMode, QuickReference[]>>({ image: [], video: [] });
 const currentReferences = computed(() => referencesByMode.value[mode.value]);
 const referenceLimit = computed(() => referenceLimitFor(mode.value));
+const nextReferenceLabel = computed(() => mode.value === "image" ? "添加参考图" : videoReferenceLabel(currentReferences.value.length, currentReferences.value.length + 1));
 const promptPlaceholder = computed(() => mode.value === "video" ? "描述主体的动作、镜头和光线变化…" :
   currentReferences.value.length > 1 ? "用 [图1]、[图2] 指定参考用途，例如：保留 [图1] 的人物，参考 [图2] 的光线。" : "描述你想生成的图片…");
 const referenceDialog = ref<HTMLDialogElement>();
@@ -485,12 +607,18 @@ const stageTitle = computed(() => generating.value ? (activeMode.value === "vide
   : pendingTask.value ? "任务待确认"
   : generationError.value || stageError.value ? "这次没有拿到作品"
   : latest.value ? "作品已生成" : "准备开始创作");
-const canGenerate = computed(() => !generating.value && !pendingTask.value && !!choices.value[mode.value] && !!prompt.value.trim() && currentReferences.value.length <= referenceLimit.value);
+const canGenerate = computed(() => !generating.value && !pendingTask.value && !!choices.value[mode.value] && !!prompt.value.trim() && supportsReferences(mode.value, currentReferences.value.length));
 const statusLabel = computed(() => generating.value ? (activeMode.value === "video" ? "视频生成中…" : "图片生成中…")
   : pendingTask.value ? "任务待确认"
-  : latest.value ? "生成完成"
   : catalogLoading.value ? "正在读取模型"
-  : !choices.value[mode.value] ? "模型未开放" : "");
+  : !choices.value[mode.value] ? "请先接入模型"
+  : !supportsReferences(mode.value, currentReferences.value.length) ? "请调整参考图数量"
+  : latest.value ? "生成完成" : "");
+const generationPoints = computed(() => {
+  if (currentUser.value?.role !== "user" || !choices.value[mode.value]) return 0;
+  if (mode.value === "image") return pointsRates.image;
+  return duration.value === pointsRates.duration && resolution.value.toLowerCase() === pointsRates.resolution ? pointsRates.video : 0;
+});
 const promptInput = ref<HTMLTextAreaElement>();
 const composer = ref<HTMLElement>();
 const miniButton = ref<HTMLButtonElement>();
@@ -511,6 +639,31 @@ const dateFormat = new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeS
 const referenceWorks = computed(() => works.value.filter(canUseAsReference));
 
 let browsing = false;
+function scheduleInspirationRefresh() {
+  window.clearTimeout(refreshTimer);
+  if (rotationPaused.value || document.hidden || route.name !== "studio") return;
+  refreshTimer = window.setTimeout(() => {
+    if (!featuredSection.value?.contains(document.activeElement)
+      && !featuredSection.value?.matches(":hover") && !inspirationDialog.value?.open) {
+      featuredBatch.value++;
+      if (window.scrollY < 100 && !exploreResults.value?.contains(document.activeElement)
+        && !exploreResults.value?.matches(":hover")) galleryBatch.value++;
+    }
+    scheduleInspirationRefresh();
+  }, 30_000 + Math.random() * 30_000);
+}
+
+function refreshInspirations() {
+  featuredBatch.value++;
+  galleryBatch.value++;
+  scheduleInspirationRefresh();
+}
+
+function toggleInspirationRotation() {
+  rotationPaused.value = !rotationPaused.value;
+  scheduleInspirationRefresh();
+}
+
 function updateDock() {
   if (route.name !== "studio") return;
   const scrollTop = window.scrollY;
@@ -521,8 +674,20 @@ function updateDock() {
 }
 
 onMounted(() => {
+  systemDark.addEventListener("change", updateSystemTheme);
+  try {
+    const draft = JSON.parse(sessionStorage.getItem(draftKey) ?? "null");
+    if (draft?.mode === "image" || draft?.mode === "video") mode.value = draft.mode;
+    if (typeof draft?.prompt === "string") prompt.value = draft.prompt.slice(0, 10000);
+  } catch { /* 忽略损坏的草稿。 */ }
+  try {
+    const entries: unknown = JSON.parse(localStorage.getItem(savedKey) ?? "[]");
+    if (Array.isArray(entries)) savedInspirations.value = new Set(entries.filter((entry): entry is string => typeof entry === "string"));
+  } catch { /* 浏览器可能禁用本地存储。 */ }
   updateDock();
   window.addEventListener("scroll", updateDock, { passive: true });
+  document.addEventListener("visibilitychange", scheduleInspirationRefresh);
+  scheduleInspirationRefresh();
   void loadCatalog();
   restore();
   if (generating.value && route.name === "studio") void router.replace("/studio/create");
@@ -546,9 +711,13 @@ watch(() => route.name, () => {
   browsing = false;
   composerCollapsed.value = false;
   updateDock();
+  scheduleInspirationRefresh();
 }, { flush: "post" });
 onBeforeUnmount(() => {
+  systemDark.removeEventListener("change", updateSystemTheme);
   window.removeEventListener("scroll", updateDock);
+  document.removeEventListener("visibilitychange", scheduleInspirationRefresh);
+  window.clearTimeout(refreshTimer);
   replaceReferences("image", []);
   replaceReferences("video", []);
   closeWork();
@@ -570,7 +739,7 @@ async function submitGeneration() {
   if (!canGenerate.value) return;
   const text = prompt.value.trim();
   submittedPrompt.value = text;
-  const task = run(mode.value, text, ratio.value, duration.value, [...currentReferences.value]);
+  const task = run(mode.value, text, ratio.value, duration.value, [...currentReferences.value], mode.value === "video" ? resolution.value : "");
   await router.push("/studio/create");
   window.scrollTo(0, 0);
   await task;
@@ -592,12 +761,7 @@ function selectRecipe(type: QuickMode) {
 function resetInspirationFilters() {
   activeCategory.value = "全部";
   inspirationQuery.value = "";
-}
-
-function showCollection(category: InspirationCategory) {
-  activeCategory.value = category;
-  inspirationQuery.value = "";
-  exploreResults.value?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
+  savedOnly.value = false;
 }
 
 async function copyPrompt() {
@@ -618,7 +782,7 @@ function changeMode(type: QuickMode) {
 }
 
 function referenceLabel(index: number) {
-  return mode.value === "video" ? "起始画面" : `参考图 ${index + 1}`;
+  return mode.value === "video" ? videoReferenceLabel(index, currentReferences.value.length) : `参考图 ${index + 1}`;
 }
 
 function replaceReferences(type: QuickMode, next: QuickReference[]) {
@@ -671,6 +835,11 @@ function pasteReference(event: ClipboardEvent) {
   addLocalFiles(files);
 }
 
+function dropReferences(event: DragEvent) {
+  const files = Array.from(event.dataTransfer?.files ?? []);
+  if (files.length) addLocalFiles(files);
+}
+
 function openReferencePicker() {
   referenceError.value = "";
   referenceDialog.value?.showModal();
@@ -693,29 +862,28 @@ function toggleReferenceWork(work: QuickWork) {
   const index = currentReferences.value.findIndex(reference => reference.asset?.path === work.path);
   if (index >= 0) removeReference(index);
   else if (directory.value) {
-    appendReference(mode.value, workspaceReference(work));
+    if (!appendReference(mode.value, workspaceReference(work))) return;
     referenceError.value = "";
-    if (mode.value === "video") referenceDialog.value?.close();
+    if (currentReferences.value.length >= referenceLimit.value) referenceDialog.value?.close();
   }
 }
 
-async function useInspiration(type: QuickMode) {
+async function useInspiration(type: QuickMode, withReference: boolean) {
   const inspiration = selected.value;
   if (!inspiration) return;
-  const reference = { url: inspiration.url };
-  if (type === "video") {
-    replaceReferences(type, [reference]);
-    if (!prompt.value.trim() && inspiration.motion) prompt.value = inspiration.motion;
-  } else if (!appendReference(type, reference)) {
-    referenceError.value = `最多使用 ${referenceLimitFor(type)} 张参考图，请移除一张后再添加。`;
-    mode.value = type;
-    inspirationDialog.value?.close();
-    await expandComposer();
-    return;
-  }
   changeMode(type);
+  if (withReference) {
+    const limit = referenceLimitFor(type);
+    if (!limit) referenceError.value = "当前模型不支持参考图，请切换模型。";
+    else if (!appendReference(type, { url: inspiration.url })) {
+      referenceError.value = `最多使用 ${limit} 张参考图，请移除一张后再添加。`;
+    }
+  }
+  const text = type === "video" ? inspiration.motion ?? inspiration.prompt : inspiration.prompt;
+  if (!prompt.value.trim()) prompt.value = text;
+  else if (!prompt.value.includes(text)) prompt.value = `${prompt.value.trim()}\n\n${text}`.slice(0, 10000);
   inspirationDialog.value?.close();
-  await expandComposer();
+  await openDraft();
 }
 
 async function openWork(work: QuickWork) {
@@ -846,13 +1014,21 @@ async function reuseWork(work: QuickWork) {
   changeMode(work.mediaType);
   prompt.value = work.prompt;
   ratiosByMode.value[work.mediaType] = work.ratio ?? "16:9";
-  if (work.mediaType === "video") duration.value = work.duration ?? 6;
+  if (work.modelKey) selectedKeys.value[work.mediaType] = work.modelKey;
+  if (work.mediaType === "video") {
+    duration.value = work.duration ?? 6;
+    resolution.value = work.resolution ?? "";
+  }
   replaceReferences(work.mediaType, (work.images ?? []).map(workspaceReference));
   await openDraft();
 }
 
 async function referenceWork(work: QuickWork, type: QuickMode) {
   if (!directory.value || !canUseAsReference(work)) return;
+  if (!referenceLimitFor(type)) {
+    referenceError.value = "当前模型不支持参考图，请切换模型。";
+    return;
+  }
   const reference = workspaceReference(work);
   if (type === "video") replaceReferences(type, [reference]);
   else if (!appendReference(type, reference)) {

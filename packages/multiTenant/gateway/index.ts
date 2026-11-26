@@ -168,7 +168,9 @@ export function createModelGateway<Upstreams extends ModelMap, Catalogs extends 
       const current = await read();
       const route = current.routes.find(item => matchesPublicModel(item, publicModelId) && item.type === type && item.enabled);
       if (!route) fail("平台模型不存在或已停用", 404);
-      execution = { route, revision: current.revision, upstream: await readUpstream(type, route, current.revision) };
+      const upstream = await readUpstream(type, route, current.revision);
+      const salePrice = options.salePriceFor?.(route, request) ?? route.salePrice;
+      execution = { route: { ...route, salePrice }, revision: current.revision, upstream };
     }
     if (request !== undefined) await routeAccess(() => adapter.validate(execution, request));
     return execution;
@@ -322,11 +324,12 @@ export function createModelGateway<Upstreams extends ModelMap, Catalogs extends 
         const adapter = options.adapters[route.type as K];
         const execution = { route, revision: current.revision,
           upstream: await readUpstream(route.type as K, route, current.revision, resources) };
-        const label = options.formatPrice(route.salePrice);
+        const salePrice = options.salePriceFor?.(route) ?? route.salePrice;
+        const label = options.formatPrice(salePrice);
         const attributes = await routeAccess(() => adapter.publicModel(execution));
         if (!attributes || typeof attributes !== "object" || Array.isArray(attributes)) fail("平台模型能力配置无效", 503);
         catalog.push({ ...attributes, providerId: "multiTenant", providerLabel: "Toonflow", routeId: route.id, modelId: getPublicModelId(route),
-          label: `${route.label} · ${label}`, salePrice: route.salePrice, priceLabel: label });
+          label: `${route.label} · ${label}`, salePrice, priceLabel: label });
       }
       return catalog;
     },

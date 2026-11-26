@@ -103,14 +103,14 @@ export const mysqlModelRouting = mysqlTable("multiTenantModelRouting", {
 
 export const sqliteWallet = sqliteTable("multiTenantWallet", {
   userId: text("userId").notNull(),
-  currency: text("currency", { enum: ["CNY", "USD"] }).notNull(),
+  currency: text("currency", { enum: ["CNY", "USD", "POINTS"] }).notNull(),
   balanceMicros: integer("balanceMicros").notNull().default(0),
   reservedMicros: integer("reservedMicros").notNull().default(0),
 }, table => [sqlitePrimaryKey({ columns: [table.userId, table.currency] })]);
 
 export const mysqlWallet = mysqlTable("multiTenantWallet", {
   userId: varchar("userId", { length: 36 }).notNull(),
-  currency: mysqlEnum("currency", ["CNY", "USD"]).notNull(),
+  currency: mysqlEnum("currency", ["CNY", "USD", "POINTS"]).notNull(),
   balanceMicros: bigint("balanceMicros", { mode: "number" }).notNull().default(0),
   reservedMicros: bigint("reservedMicros", { mode: "number" }).notNull().default(0),
 }, table => [mysqlPrimaryKey({ columns: [table.userId, table.currency] })]);
@@ -118,7 +118,7 @@ export const mysqlWallet = mysqlTable("multiTenantWallet", {
 export const sqliteBillingLedger = sqliteTable("multiTenantBillingLedger", {
   requestId: text("requestId").primaryKey(),
   userId: text("userId").notNull(),
-  currency: text("currency", { enum: ["CNY", "USD"] }).notNull(),
+  currency: text("currency", { enum: ["CNY", "USD", "POINTS"] }).notNull(),
   kind: text("kind", { enum: ["credit", "model"] }).notNull(),
   status: text("status", { enum: ["reserved", "settled", "released"] }).notNull(),
   requestHash: text("requestHash").notNull(),
@@ -133,7 +133,7 @@ export const sqliteBillingLedger = sqliteTable("multiTenantBillingLedger", {
 export const mysqlBillingLedger = mysqlTable("multiTenantBillingLedger", {
   requestId: varchar("requestId", { length: 36 }).primaryKey(),
   userId: varchar("userId", { length: 36 }).notNull(),
-  currency: mysqlEnum("currency", ["CNY", "USD"]).notNull(),
+  currency: mysqlEnum("currency", ["CNY", "USD", "POINTS"]).notNull(),
   kind: mysqlEnum("kind", ["credit", "model"]).notNull(),
   status: mysqlEnum("status", ["reserved", "settled", "released"]).notNull(),
   requestHash: varchar("requestHash", { length: 64 }).notNull(),
@@ -145,6 +145,27 @@ export const mysqlBillingLedger = mysqlTable("multiTenantBillingLedger", {
   updatedAt: bigint("updatedAt", { mode: "number" }).notNull(),
 }, table => [mysqlIndex("multiTenantBillingLedgerUserCreatedAt").on(table.userId, table.createdAt)]);
 
+export const sqlitePointsOrder = sqliteTable("kairosPointsOrder", {
+  id: text("id").primaryKey(),
+  creditId: text("creditId").notNull().unique(),
+  userId: text("userId").notNull(),
+  packId: text("packId").notNull(),
+  amountFen: integer("amountFen").notNull(),
+  points: integer("points").notNull(),
+  createdAt: integer("createdAt").notNull(),
+});
+
+export const mysqlPointsOrder = mysqlTable("kairosPointsOrder", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  creditId: varchar("creditId", { length: 36 }).notNull().unique(),
+  userId: varchar("userId", { length: 36 }).notNull(),
+  packId: varchar("packId", { length: 32 }).notNull(),
+  amountFen: int("amountFen").notNull(),
+  points: int("points").notNull(),
+  createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+});
+
+export type PointsOrder = typeof sqlitePointsOrder.$inferSelect;
 export type AdminRecord = typeof sqliteAdmin.$inferSelect;
 export type AdminUpdate = Partial<Omit<AdminRecord, "id" | "userName" | "passwordHash">>;
 export type UserRecord = typeof sqliteUser.$inferSelect;
@@ -168,6 +189,8 @@ export type AdminDatabase = {
   initializeModelRouting(): Promise<void>;
   writeModelRouting(configuration: Record<string, unknown>, expectedRevision: number): Promise<boolean>;
   initializeBilling(): Promise<void>;
+  createPointsOrder(order: PointsOrder): Promise<void>;
+  getPointsOrder(id: string): Promise<PointsOrder | undefined>;
   getWallets(userId: string): Promise<WalletRecord[]>;
   getBillingRecord(requestId: string): Promise<BillingRecord | undefined>;
   listBillingRecords(userId: string, limit: number): Promise<BillingRecord[]>;

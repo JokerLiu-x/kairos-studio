@@ -25,6 +25,7 @@ const router = createRouter({
     { path: "/studio/create", name: "studioCreate", component: studioPage },
     { path: "/studio/works", name: "studioWorks", component: studioPage },
     { path: "/studio/projects", name: "studioProjects", component: studioPage },
+    { path: "/studio/points", name: "studioPoints", component: studioPage },
     { path: "/studio/settings", name: "studioSettings", component: studioPage },
     {
       path: "/canvas",

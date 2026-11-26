@@ -20,7 +20,7 @@
       </div>
       <div v-else class="welcomeContent">
         <h1 id="welcomeTitle">快速开始</h1>
-        <p class="description">登录 Toonflow 即可免配置快速开始，直接开启创作。</p>
+        <p class="description">使用 Toonflow 账号登录 Kairos，或稍后配置创作模型。</p>
         <accountPanel v-if="!loggedIn" class="accountContent" @loggedIn="startWithAccount" />
         <el-button v-else class="startButton" type="primary" :loading="saving" @click="completeSetup">开始使用</el-button>
         <div class="secondaryActions">
@@ -37,14 +37,13 @@
 
       <footer class="pageFooter">
         <el-button class="deviceLink" size="small" :icon="IconDevices" @click="mobileConnectVisible = true">{{ mobileConnectionLabel }}</el-button>
-        <p>© {{ new Date().getFullYear() }} Toonflow · 保留所有权利。</p>
       </footer>
     </section>
     <div class="artPanel" aria-hidden="true">
       <bg class="artBg" />
       <div class="artBrand">
-        <span class="artLogo" v-html="logoSvg" />
-        <span class="artName">Toonflow</span>
+        <img class="artLogo" :src="kairosMark" alt="" />
+        <span class="artName">Kairos</span>
       </div>
     </div>
     <mobileConnect v-model="mobileConnectVisible" />
@@ -59,7 +58,7 @@ import { IconArrowLeft, IconDevices } from "@tabler/icons-vue";
 import { customProviders, multiTenantEnabled, toonflowAccountToken } from "@/stores/settings";
 import { useHelloStore } from "@/stores/hello";
 import anonymousData from "@/lib/anonymousData";
-import logoSvg from "@toonflow/assets/logo.svg?raw";
+import kairosMark from "@/assets/kairosIcon.png";
 import bg from "./bg.vue";
 import languageSelect from "@/components/languageSelect.vue";
 import { mobileConnectionLabel } from "@/lib/mobile";
@@ -286,17 +285,7 @@ async function completeSetup() {
       .artLogo {
         width: 44px;
         height: 44px;
-        line-height: 0;
-
-        :deep(svg) {
-          display: block;
-          width: 100%;
-          height: 100%;
-        }
-
-        :deep(path) {
-          fill: #fff;
-        }
+        border-radius: 12px;
       }
 
       .artName {

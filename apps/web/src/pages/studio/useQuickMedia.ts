@@ -1,6 +1,6 @@
 import { computed, onScopeDispose, ref } from "vue";
 import { isAxiosError } from "axios";
-import { getNodeModelIdentity, useNodeAi, type NodeMediaModel } from "@toonflow/nodes-scaffold/nodeAi";
+import { getNodeModelIdentity, getNodeModelKey, useNodeAi, type NodeMediaModel, type NodeVideoRequest } from "@toonflow/nodes-scaffold/nodeAi";
 import http from "@/lib/http";
 import useWorkspaceFiles from "@/lib/workspaceFiles";
 import { currentUser } from "@/stores/multiTenant";
@@ -8,7 +8,7 @@ import { currentUser } from "@/stores/multiTenant";
 export type QuickMode = "image" | "video";
 type SavedReference = { path: string; mimeType: string };
 export type QuickReference = { url: string; file?: File; asset?: SavedReference };
-type QuickRecipe = { prompt?: string; ratio?: string; duration?: number; images?: SavedReference[] };
+type QuickRecipe = { prompt?: string; ratio?: string; duration?: number; images?: SavedReference[]; modelKey?: string; resolution?: string };
 type WorkDetails = { name?: string; tags?: string[]; favorite?: boolean };
 export type QuickWork = QuickRecipe & { path: string; mimeType: string; mediaType: QuickMode; modifiedAt?: number; size?: number; details?: WorkDetails };
 type QuickTask = QuickRecipe & { id: string; mode: QuickMode };
@@ -24,11 +24,13 @@ const defaultRatios = ["16:9", "9:16", "1:1"];
 
 function readRecipe(data: unknown): QuickRecipe {
   if (!data || typeof data !== "object") return {};
-  const { prompt, ratio, duration, images } = data as QuickRecipe;
+  const { prompt, ratio, duration, images, modelKey, resolution } = data as QuickRecipe;
   return {
     prompt: typeof prompt === "string" ? prompt.slice(0, 10000) : undefined,
     ratio: typeof ratio === "string" && /^\d{1,2}:\d{1,2}$/.test(ratio) ? ratio : undefined,
-    duration: typeof duration === "number" && quickDurations.includes(duration) ? duration : undefined,
+    duration: typeof duration === "number" && Number.isFinite(duration) && duration > 0 ? duration : undefined,
+    modelKey: typeof modelKey === "string" ? modelKey : undefined,
+    resolution: typeof resolution === "string" ? resolution : undefined,
     images: Array.isArray(images) ? images.slice(0, 4).filter(image =>
       image && typeof image.path === "string" && /^quickCreation\/(?:works|references)\/[\w.-]+\.(?:jpe?g|png|webp)$/i.test(image.path)
       && quickImageTypes.includes(image.mimeType)) : undefined,
@@ -61,13 +63,55 @@ export default function useQuickMedia() {
   const activeMode = ref<QuickMode>();
   const latest = ref<QuickWork>();
   const nodeAi = useNodeAi({ onModelsChanged: loadCatalog });
-  const choices = computed(() => Object.fromEntries((["image", "video"] as const).map(type => [
-    type, models.value.find(model => model.type === type && model.providerId === "museLocal" && model.modelId === `muse-${type}`)
-      ?? models.value.find(model => model.type === type && model.providerId === "multiTenant" && model.modelId === `muse-${type}`),
-  ])) as Record<QuickMode, NodeMediaModel | undefined>);
+  const selectedKeys = ref<Record<QuickMode, string>>({ image: "", video: "" });
+  const modelsByMode = computed(() => ({
+    image: models.value.filter(model => model.type === "image"),
+    video: models.value.filter(model => model.type === "video"),
+  }));
+  function modelFor(type: QuickMode) {
+    const choices = modelsByMode.value[type];
+    return choices.find(model => getNodeModelKey(model) === selectedKeys.value[type])
+      ?? choices.find(model => model.modelId === `muse-${type}`)
+      ?? choices[0];
+  }
+  const choices = computed(() => ({ image: modelFor("image"), video: modelFor("video") }));
+  const durations = computed(() => {
+    const values = [...new Set((choices.value.video?.durationResolutionMap ?? []).flatMap(option => option.duration))];
+    return values.length ? values.sort((left, right) => left - right) : quickDurations;
+  });
+  const resolutionsFor = (duration: number) => [...new Set((choices.value.video?.durationResolutionMap ?? [])
+    .filter(option => option.duration.includes(duration)).flatMap(option => option.resolution))];
   const imageRatios = computed(() => choices.value.image?.imageRatios?.length ? choices.value.image.imageRatios : defaultRatios);
   const ratiosFor = (mode: QuickMode) => mode === "image" ? imageRatios.value : defaultRatios;
-  const referenceLimitFor = (mode: QuickMode) => mode === "image" && choices.value.image?.mode?.flat().includes("multiReference") ? 4 : 1;
+  function videoModeFor(count: number): NodeVideoRequest["mode"] {
+    const modes = choices.value.video?.mode;
+    if (!modes?.length) return count === 1 ? "singleImage" : count === 0 ? "text" : undefined;
+    if (!count) return modes.includes("text") ? "text" : undefined;
+    if (count === 1 && modes.includes("singleImage")) return "singleImage";
+    const frames = (count === 2 && modes.includes("startEndRequired")) ? "startEndRequired"
+      : modes.includes("endFrameOptional") ? "endFrameOptional" : modes.includes("startFrameOptional") ? "startFrameOptional" : undefined;
+    if (count <= 2 && frames) return frames;
+    return modes.find(mode => Array.isArray(mode) && mode.some(item => item.startsWith("imageReference:") && Number(item.split(":")[1]) >= count)) as NodeVideoRequest["mode"];
+  }
+  function referenceLimitFor(mode: QuickMode) {
+    if (mode === "video") return [4, 3, 2, 1].find(count => videoModeFor(count)) ?? 0;
+    const modes = choices.value.image?.mode;
+    if (!modes?.length) return 1;
+    if (modes.includes("multiReference")) return 4;
+    return modes.includes("singleImage") ? 1 : 0;
+  }
+  function supportsReferences(mode: QuickMode, count: number) {
+    if (mode === "video") return Boolean(videoModeFor(count));
+    const modes = choices.value.image?.mode;
+    if (!modes?.length) return count <= 1;
+    return count === 0 ? modes.includes("text") : count <= referenceLimitFor(mode);
+  }
+  function videoReferenceLabel(index: number, count: number) {
+    const inputMode = videoModeFor(Math.max(count, 1)) ?? videoModeFor(2);
+    if (Array.isArray(inputMode)) return `参考图 ${index + 1}`;
+    if (inputMode === "startFrameOptional" && count === 1) return "结束画面";
+    return index === 0 ? "起始画面" : "结束画面";
+  }
   let rootRequest: Promise<string> | undefined;
   let worksRequest: Promise<void> | undefined;
   const pendingTask = ref<QuickTask>();
@@ -177,7 +221,7 @@ export default function useQuickMedia() {
     } catch { return; }
   }
 
-  async function run(mode: QuickMode, prompt: string, ratio: string, duration: number, inputReferences: readonly QuickReference[]) {
+  async function run(mode: QuickMode, prompt: string, ratio: string, duration: number, inputReferences: readonly QuickReference[], resolution: string) {
     if (busy.value || !prompt.trim()) return;
     const model = choices.value[mode];
     if (!model) return;
@@ -188,7 +232,8 @@ export default function useQuickMedia() {
     latest.value = undefined;
     let terminal = false;
     try {
-      if (inputReferences.length > referenceLimitFor(mode)) throw new Error("参考图数量超过当前模式的上限");
+      if (!supportsReferences(mode, inputReferences.length)) throw new Error("参考图数量与当前模型不匹配");
+      const videoMode = mode === "video" ? videoModeFor(inputReferences.length) : undefined;
       const sources = await Promise.all(inputReferences.map(async (reference): Promise<SavedReference | Blob> => {
         if (reference.asset) return reference.asset;
         const blob = reference.file ?? await fetch(reference.url, { signal: controller.signal }).then(response => {
@@ -210,11 +255,22 @@ export default function useQuickMedia() {
         return { path, mimeType: source.type };
       }));
       const input = { ...getNodeModelIdentity(model), directory: rootDirectory, outputDirectory: outputs, prompt: prompt.trim(), ratio, images: images.length ? images : undefined };
-      remember({ id, mode, prompt: input.prompt, ratio, duration: mode === "video" ? duration : undefined, images });
+      remember({ id, mode, prompt: input.prompt, ratio, duration: mode === "video" ? duration : undefined, images, modelKey: getNodeModelKey(model), resolution: resolution || undefined });
       const options = { taskId: id, onStatus: (status: { result?: unknown }) => { terminal = Boolean(status.result); } };
+      const frameMode = videoMode === "startEndRequired" || videoMode === "endFrameOptional" || videoMode === "startFrameOptional";
+      const onlyLastFrame = videoMode === "startFrameOptional" && images.length === 1;
+      const referenceOrder: NodeVideoRequest["referenceOrder"] = images.map((_, index) => frameMode
+        ? { type: index === 0 && !onlyLastFrame ? "firstFrame" : "lastFrame" }
+        : { type: "image", index });
       const results = mode === "image"
         ? await nodeAi.generateImage(input, controller.signal, options)
-        : await nodeAi.generateVideo({ ...input, duration, mode: images.length ? "singleImage" : "text" }, controller.signal, options);
+        : await nodeAi.generateVideo({
+            ...input, duration, resolution: resolution || undefined, mode: videoMode, generateAudio: model.audio === true,
+            images: frameMode ? undefined : input.images,
+            firstFrame: frameMode && !onlyLastFrame ? images[0] : undefined,
+            lastFrame: frameMode ? images[onlyLastFrame ? 0 : 1] : undefined,
+            referenceOrder: referenceOrder.length ? referenceOrder : undefined,
+          }, controller.signal, options);
       await finish(results);
     } catch (error) {
       if (controller.signal.aborted) return;
@@ -278,5 +334,9 @@ export default function useQuickMedia() {
     } catch { return; }
   }
 
-  return { directory, choices, ratiosFor, referenceLimitFor, works, loadingWorks, catalogLoading, workError, generationError, busy, activeMode, latest, pendingTask, loadCatalog, loadWorks, saveWorkDetails, run, restore, resume };
+  return {
+    directory, choices, modelsByMode, selectedKeys, durations, resolutionsFor, ratiosFor, referenceLimitFor, supportsReferences, videoReferenceLabel,
+    works, loadingWorks, catalogLoading, workError, generationError, busy, activeMode, latest, pendingTask,
+    loadCatalog, loadWorks, saveWorkDetails, run, restore, resume,
+  };
 }

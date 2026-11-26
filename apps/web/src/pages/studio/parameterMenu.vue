@@ -57,16 +57,16 @@ onBeforeUnmount(() => document.removeEventListener("keydown", closeOnEscape, tru
   border: 0;
   border-radius: 999px;
   background: transparent;
-  color: #494542;
+  color: var(--kairos-muted);
   font: inherit;
   white-space: nowrap;
   cursor: pointer;
   transition: background .16s ease;
-  &:hover, &.expanded { background: #45392d12; }
-  &:focus-visible { outline: 2px solid #9d8470; outline-offset: 2px; }
+  &:hover, &.expanded { background: var(--kairos-hover); }
+  &:focus-visible { outline: 2px solid var(--kairos-focus); outline-offset: 2px; }
   .parameterChevron { opacity: .65; }
 }
-.parameterDropdown { color: #494542; }
+.parameterDropdown { color: var(--kairos-muted); }
 @media (prefers-reduced-motion: reduce) {
   .parameterControl { transition: none; }
 }
@@ -78,14 +78,13 @@ onBeforeUnmount(() => document.removeEventListener("keydown", closeOnEscape, tru
   width: 174px;
   max-width: calc(100vw - 24px);
   padding: 6px;
-  border: 1px solid #e9e2dc;
+  border: 1px solid var(--kairos-edge);
   border-radius: 18px;
-  background: #fffdfa;
-  box-shadow: 0 11px 28px #30251a21, 0 2px 6px #30251a09;
-  color: #24201d;
-  color-scheme: light;
+  background: var(--kairos-solid);
+  box-shadow: var(--kairos-shadow);
+  color: var(--kairos-text);
 
-  .parameterTitle { padding: 9px 10px 6px; color: #736760; font-size: 13px; }
+  .parameterTitle { padding: 9px 10px 6px; color: var(--kairos-muted); font-size: 13px; }
   .el-dropdown-menu { padding: 2px 0; background: transparent; }
   .el-dropdown-menu__item {
     display: flex;
@@ -94,11 +93,11 @@ onBeforeUnmount(() => document.removeEventListener("keydown", closeOnEscape, tru
     min-height: 41px;
     padding: 6px 10px;
     border-radius: 12px;
-    color: #24201d;
+    color: var(--kairos-text);
     font-size: 15px;
     font-variant-numeric: tabular-nums;
-    &.selected { background: #f4f0ed; }
-    &:hover, &:focus { background: #eee8e3; color: #24201d; }
+    &.selected { background: var(--kairos-raised); }
+    &:hover, &:focus { background: var(--kairos-hover); color: var(--kairos-text); }
   }
 }
 </style>

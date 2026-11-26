@@ -111,7 +111,7 @@ export function createBilling(dataDirectory: string) {
       fail("计费记录归属不一致，请联系管理员", 503);
     }
     return {
-      wallets: (["CNY", "USD"] as const).map(currency => {
+      wallets: billingCurrencySchema.options.map(currency => {
         const wallet = wallets.find(item => item.currency === currency);
         const balance = BigInt(wallet?.balanceMicros ?? 0);
         const reserved = BigInt(wallet?.reservedMicros ?? 0);
@@ -188,7 +188,7 @@ export function createBilling(dataDirectory: string) {
         requestId: value.requestId, userId: value.userId, currency: quote.currency, reservedMicros,
         requestHash: value.requestHash, details, createdAt: Date.now(),
       });
-      if (result === "insufficient") fail("余额不足，请联系管理员充值", 402);
+      if (result === "insufficient") fail(quote.currency === "POINTS" ? "积分不足，请先充值。" : "余额不足，请联系管理员充值", 402);
       if (result === "duplicate") {
         const previous = await db.getBillingRecord(value.requestId);
         if (!previous || previous.kind !== "model" || previous.userId !== value.userId || previous.requestHash !== value.requestHash) {

@@ -465,6 +465,22 @@ https://github.com/user-attachments/assets/2d9fddac-dfdf-4640-b030-b09d7f7287e9
 
 ---
 
+## Kairos 积分充值
+
+启用多租户并初始化超级管理员后，普通创作账号可在「积分充值」购买积分。图片每张 8 积分，720p、10 秒的视频每条 50 积分。部署时通过创作入口（默认端口 10888）提供 HTTPS 访问，反向代理保留原始 `Host`，并将 `POST /api/points/notify` 转发至同一个创作入口。
+
+在服务端设置下列环境变量后重启，并用已签约支付宝电脑网站支付的应用联调。
+
+| 变量 | 值 |
+| --- | --- |
+| `KAIROS_PAYMENT_ORIGIN` | 创作入口的 HTTPS 源，例如 `https://studio.example.com` |
+| `KAIROS_ALIPAY_APP_ID` | 支付宝开放平台应用 ID |
+| `KAIROS_ALIPAY_SELLER_ID` | 签约商家的支付宝用户 ID |
+| `KAIROS_ALIPAY_PRIVATE_KEY` | 应用的 RSA2 私钥，PEM 格式 |
+| `KAIROS_ALIPAY_PUBLIC_KEY` | 支付宝提供的 RSA2 公钥，PEM 格式 |
+
+密钥也可使用字面量 `\n` 表示 PEM 换行。支付宝异步通知通过签名、商户、订单和金额校验后入账。商户配置未就绪时，充值页展示价格和积分，付款按钮禁用。
+
 ## 8. 📜 开源许可
 
 Toonflow 采用 [MIT 许可证](./LICENSE)。第三方依赖和素材遵循各自的许可与版权声明。

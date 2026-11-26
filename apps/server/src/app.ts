@@ -1,7 +1,6 @@
 import logger from "morgan";
 import express from "express";
 import cors from "cors";
-import { createHash } from "node:crypto";
 import { dirname, resolve } from "node:path";
 import { lstat, readFile, readdir, unlink } from "@toonflow/file";
 import type { Request, Response, NextFunction } from "express";
@@ -13,8 +12,6 @@ import initializePlugins from "@/utils/plugins/initialize";
 import { languageRequest, setLocaleFallback, translateError, translateMessage } from "@/lib/i18n";
 import { detectLocale, normalizeLocale } from "@toonflow/i18n";
 
-const autoInstallProviders = ["apiMart.ts", "metaso.ts", "compshare.ts"];
-
 export async function createApp({
   webRoot,
   appVersion = "",
@@ -22,7 +19,6 @@ export async function createApp({
   toolsRoot,
   nodesRoot,
   extRoot,
-  providersRoot,
   skillsRoot,
   agentsRoot,
   pluginRevision,
@@ -33,7 +29,6 @@ export async function createApp({
   toolsRoot?: string;
   nodesRoot?: string;
   extRoot?: string;
-  providersRoot?: string;
   skillsRoot?: string;
   agentsRoot?: string;
   pluginRevision?: string;
@@ -67,23 +62,6 @@ export async function createApp({
     const { default: initializeExt } = await import("@/utils/plugins/initializeExt");
     await initializeExt(resolve(dataDirectory, "ext"), extRoot, pluginRevision);
   }
-  // ACT: 内置媒体供应商随构建同步，其他供应商文件和独立保存的配置保留。
-  if (dataDirectory && providersRoot) {
-    const sourceDirectory = resolve(providersRoot, "media");
-    let providerRevision = pluginRevision;
-    if (providerRevision === undefined) {
-      const hash = createHash("sha256");
-      for (const name of autoInstallProviders) {
-        const source = await readFile(resolve(sourceDirectory, name)).catch((error: NodeJS.ErrnoException) => {
-          if (error.code === "ENOENT") return Buffer.alloc(0);
-          throw error;
-        });
-        hash.update(name).update("\0").update(source).update("\0");
-      }
-      providerRevision = hash.digest("hex");
-    }
-    await initializePlugins(resolve(dataDirectory, "providers"), sourceDirectory, autoInstallProviders, providerRevision);
-  }
   // ACT: 技能和团队只补首次安装，保留用户修改。
   if (dataDirectory && skillsRoot) await initializePlugins(resolve(dataDirectory, "skills"), skillsRoot);
   if (dataDirectory && agentsRoot) await initializePlugins(resolve(dataDirectory, "agents"), agentsRoot);
@@ -112,6 +90,10 @@ export async function createApp({
   const { initializeMultiTenantRuntime, multiTenantAccess } = await import("@/utils/multiTenant/runtime");
   initializeMultiTenantRuntime(app);
   app.use(multiTenantAccess);
+  app.post("/api/points/notify", (req, res, next) => {
+    if (!req.is("application/x-www-form-urlencoded")) return res.status(415).type("text/plain").send("failure");
+    return next();
+  }, express.urlencoded({ extended: false, limit: "24kb", parameterLimit: 60 }));
   app.use("/a2a", express.json({ limit: "2mb" }));
   app.use(["/api/workspaces/files/write", "/api/assets/save"], express.raw({ type: "application/octet-stream", limit: "100mb" }));
   app.use(express.json({ limit: "100mb" }));

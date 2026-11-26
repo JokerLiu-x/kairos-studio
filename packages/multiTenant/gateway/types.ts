@@ -57,6 +57,7 @@ export interface ModelAdapter<T, Public, Cloud extends Record<string, unknown>> 
 export type ModelGatewayOptions<Upstreams extends ModelMap, Catalogs extends ModelMap, Cloud extends Record<string, unknown>> = {
   enabled(): boolean;
   formatPrice(price: ModelPrice): string;
+  salePriceFor?(route: ModelRoute, request?: unknown): ModelPrice;
   adapters: { [K in ModelType]: ModelAdapter<Upstreams[K], Catalogs[K], Cloud> };
   cloud: {
     parse(value: unknown): Cloud;

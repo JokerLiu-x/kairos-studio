@@ -15,8 +15,8 @@ type Runtime = { started: boolean; server?: Server; sockets: Set<Socket>; queue:
 const runtimes = new WeakMap<Application, Runtime>();
 const userRoutes = new Set(["register", "login", "session", "logout", "host"].map(name => `/api/multitenant/user/${name}`));
 const controlRoutes = new Set(["status", "setup", "login", "logout", "state", "enabled", "registration", "hostsession"].map(name => `/api/multitenant/${name}`));
-const userReadRoutes = new Set(["/api/ai/models", "/api/ai/media/models", "/api/multitenant/user/balance", "/api/nodes/get", "/api/nodes/files", "/api/ext/list", "/api/ext/read", "/api/tools/get"]);
-const modelWriteRoutes = new Set(["/api/ai/generate", "/api/ai/media/price", "/api/ai/media/generate", "/api/ai/media/tasks/status", "/api/ai/media/tasks/cancel"]);
+const userReadRoutes = new Set(["/api/ai/models", "/api/ai/media/models", "/api/multitenant/user/balance", "/api/nodes/get", "/api/nodes/files", "/api/ext/list", "/api/ext/read", "/api/tools/get", "/api/points/catalog", "/api/points/order"]);
+const modelWriteRoutes = new Set(["/api/ai/generate", "/api/ai/media/price", "/api/ai/media/generate", "/api/ai/media/tasks/status", "/api/ai/media/tasks/cancel", "/api/points/checkout"]);
 const communityReads = new Set(["getAdvertisements", "getExploreProjects", "getExploreProject", "getExploreProcess", "getExploreDownload", "getSponsorList"]
   .map(name => `/api/channel/community/${name.toLowerCase()}`));
 const platformPrefixes = ["/api/providers", "/api/plugins", "/api/mcp/servers", "/api/channel/account", "/api/channel/model", "/api/channel/provider", "/api/channel/subaccounts", "/api/channel/user", "/api/channel/wallet", "/api/channel/plugin"];
@@ -68,7 +68,7 @@ async function openListener(app: Application, value: Runtime) {
     const body = errorFromCause(cause);
     res.status(body.code).json(body);
   });
-  const server = gateway.listen(creationPort, "0.0.0.0");
+  const server = gateway.listen(creationPort, process.env.TOONFLOW_CREATION_HOST ?? "0.0.0.0");
   server.on("connection", socket => { value.sockets.add(socket); socket.once("close", () => value.sockets.delete(socket)); });
   try {
     await new Promise<void>((resolve, reject) => {
@@ -150,6 +150,7 @@ export async function multiTenantAccess(req: Request, res: Response, next: NextF
   const path = accessPath(req);
   if (path === null) return next();
   const publicWeb = res.locals.multiTenantWeb === true;
+  if (publicWeb && path === "/api/points/notify" && req.method === "POST") return next();
   const managementRoute = controlRoutes.has(path)
     || ["/api/multitenant/users", "/api/multitenant/sourcemapping", "/api/multitenant/models", "/api/multitenant/providers", "/api/multitenant/billing"].some(prefix => path === prefix || path.startsWith(`${prefix}/`));
   const desktopRoute = path === "/api/desktop" || path.startsWith("/api/desktop/");
