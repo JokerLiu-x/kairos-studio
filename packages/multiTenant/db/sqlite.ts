@@ -1,13 +1,22 @@
 import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
-import { and, asc, count, desc, eq, getTableColumns, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, getTableColumns, gte, lt, or, sql } from "drizzle-orm";
 import { sqliteAdmin, sqliteBillingLedger, sqliteModelRouting, sqlitePointsOrder, sqliteSettings, sqliteSourceMapping, sqliteUser, sqliteWallet, sqliteWebSession } from "./schema";
 import type { AdminDatabase, WalletRecord } from "./schema";
+import { mapModelUsageAlerts, modelUsageQuery, type ModelUsageAlertRow } from "./modelUsage";
+import { commerceError, commerceQuery, confirmEntry, confirmPurchase, membershipDuration, sqliteMembershipOrder, sqliteCommerceEntry } from "./commerce";
 import { maxWalletMicros, validateWalletAmount, walletBalanceOverflow, walletSettlementExceeded, walletStateConflict } from "./billing";
+
+function missingCommerceTable(error: unknown) {
+  const failure = error as { message?: string; cause?: { message?: string } };
+  return /^no such table: (kairosMembershipOrder|kairosCommerceEntry|multiTenantBillingLedger)$/.test(failure.cause?.message ?? failure.message ?? "");
+}
 
 export function connectSqlite(file: string): AdminDatabase {
   const client = new Database(file, { create: false, strict: true });
   const db = drizzle(client);
+  const commerce = commerceQuery(sqliteMembershipOrder);
+  const usage = modelUsageQuery(sqliteBillingLedger, value => value);
   let accountColumn: boolean | undefined;
   let initialized = false;
   function columns() { return db.all<{ name: string }>(sql`PRAGMA table_info("multiTenantAdmin")`); }
@@ -137,6 +146,143 @@ export function connectSqlite(file: string): AdminDatabase {
     },
     async getPointsOrder(id) {
       return db.select().from(sqlitePointsOrder).where(eq(sqlitePointsOrder.id, id)).get();
+    },
+    async initializeCommerce() {
+      db.run(sql`CREATE TABLE IF NOT EXISTS kairosMembershipOrder (
+        id TEXT PRIMARY KEY NOT NULL, userId TEXT NOT NULL,
+        paymentRef TEXT NOT NULL UNIQUE,
+        rate TEXT NOT NULL, segment TEXT NOT NULL,
+        paidFen INTEGER NOT NULL, refundedFen INTEGER NOT NULL DEFAULT 0,
+        imageRouteId TEXT, videoRouteId TEXT,
+        paidAt INTEGER NOT NULL, startsAt INTEGER NOT NULL, endsAt INTEGER NOT NULL,
+        CHECK (paidFen > 0 AND refundedFen >= 0 AND refundedFen <= paidFen)
+      )`);
+      db.run(sql`CREATE TABLE IF NOT EXISTS kairosCommerceEntry (
+        id TEXT PRIMARY KEY NOT NULL, orderId TEXT NOT NULL,
+        kind TEXT NOT NULL, value INTEGER NOT NULL,
+        quantity INTEGER NOT NULL, note TEXT NOT NULL, createdAt INTEGER NOT NULL,
+        CHECK (value > 0 AND quantity >= 0)
+      )`);
+      db.run(sql`CREATE INDEX IF NOT EXISTS kairosMembershipUserStarts ON kairosMembershipOrder (userId, startsAt)`);
+      db.run(sql`CREATE INDEX IF NOT EXISTS kairosMembershipPaidAt ON kairosMembershipOrder (paidAt)`);
+      db.run(sql`CREATE INDEX IF NOT EXISTS kairosCommerceOrderTime ON kairosCommerceEntry (orderId, createdAt)`);
+      db.run(sql`CREATE INDEX IF NOT EXISTS kairosCommerceTime ON kairosCommerceEntry (createdAt)`);
+    },
+    async addMembership(input) {
+      return client.transaction(() => {
+        const owner = db.select({ id: sqliteUser.id, disabled: sqliteUser.disabled }).from(sqliteUser).where(eq(sqliteUser.id, input.userId)).get();
+        if (!owner) commerceError("账号不存在", 404);
+        const previous = db.select().from(sqliteMembershipOrder).where(or(eq(sqliteMembershipOrder.id, input.id), eq(sqliteMembershipOrder.paymentRef, input.paymentRef))).get();
+        if (previous) return confirmPurchase(input, previous);
+        if (owner.disabled) commerceError("账号已禁用", 403);
+        const latest = db.select().from(sqliteMembershipOrder).where(and(eq(sqliteMembershipOrder.userId, input.userId), sql`${sqliteMembershipOrder.refundedFen} < ${sqliteMembershipOrder.paidFen}`)).orderBy(desc(sqliteMembershipOrder.endsAt)).get();
+        if (input.rate === "intro") {
+          const prior = db.select({ id: sqliteMembershipOrder.id }).from(sqliteMembershipOrder).where(eq(sqliteMembershipOrder.userId, input.userId)).get();
+          if (prior) commerceError("此账号已购买过月卡，不能再使用首月价");
+        }
+        const now = Date.now();
+        const paidAt = input.paidAt ?? now;
+        const startsAt = Math.max(now, latest?.endsAt ?? 0);
+        const order = { ...input, paidAt, startsAt, endsAt: startsAt + membershipDuration, refundedFen: 0 };
+        db.insert(sqliteMembershipOrder).values(order).run();
+        return order;
+      }).immediate();
+    },
+    async activeMembership(userId, routeId, at) {
+      try {
+        return db.select().from(sqliteMembershipOrder).where(commerce.active(userId, routeId, at)).orderBy(desc(sqliteMembershipOrder.startsAt)).get();
+      } catch (error) {
+        if (missingCommerceTable(error)) return;
+        throw error;
+      }
+    },
+    async listMemberships(filters) {
+      try {
+        const firstOutputAt = (type: "image" | "video") => sql<number | null>`(select min(${sqliteBillingLedger.updatedAt}) from multiTenantBillingLedger
+          where ${sqliteBillingLedger.userId} = ${sqliteMembershipOrder.userId} and ${sqliteBillingLedger.createdAt} >= ${sqliteMembershipOrder.startsAt}
+          and ${sqliteBillingLedger.createdAt} < ${sqliteMembershipOrder.endsAt} and ${sqliteBillingLedger.status} = 'settled'
+          and json_extract(${sqliteBillingLedger.details}, '$.coveredOrderId') = ${sqliteMembershipOrder.id}
+          and json_extract(${sqliteBillingLedger.details}, '$.type') = ${type}
+          and json_extract(${sqliteBillingLedger.usage}, '$.outputs') > 0)`.mapWith(Number);
+        const modelPacks = sql<number>`(select coalesce(sum(${sqliteCommerceEntry.quantity}), 0) from kairosCommerceEntry
+          where ${sqliteCommerceEntry.orderId} = ${sqliteMembershipOrder.id} and ${sqliteCommerceEntry.kind} = 'model')`.mapWith(Number);
+        const rows = db.select({ order: getTableColumns(sqliteMembershipOrder), userName: sqliteUser.userName,
+          firstImageAt: firstOutputAt("image"), firstVideoAt: firstOutputAt("video"), modelPacks, renewed: commerce.renewed })
+          .from(sqliteMembershipOrder).leftJoin(sqliteUser, eq(sqliteUser.id, sqliteMembershipOrder.userId)).where(commerce.list(filters))
+          .orderBy(desc(sqliteMembershipOrder.paidAt), desc(sqliteMembershipOrder.id)).limit(filters.limit + 1).all();
+        return rows.map(({ order, ...extra }) => ({ ...order, ...extra }));
+      } catch (error) {
+        if (missingCommerceTable(error)) return [];
+        throw error;
+      }
+    },
+    async addCommerceEntry(input) {
+      return client.transaction(() => {
+        const order = db.select().from(sqliteMembershipOrder).where(eq(sqliteMembershipOrder.id, input.orderId)).get();
+        if (!order) commerceError("月卡订单不存在", 404);
+        const previous = db.select().from(sqliteCommerceEntry).where(eq(sqliteCommerceEntry.id, input.id)).get();
+        if (previous) return confirmEntry(input, previous);
+        if (input.kind === "refund") {
+          if (input.value > order.paidFen - order.refundedFen) commerceError("退款金额超过订单可退款余额", 400);
+          db.update(sqliteMembershipOrder).set({ refundedFen: order.refundedFen + input.value }).where(eq(sqliteMembershipOrder.id, order.id)).run();
+        }
+        const entry = { ...input, createdAt: Date.now() };
+        db.insert(sqliteCommerceEntry).values(entry).run();
+        return entry;
+      }).immediate();
+    },
+    async listCommerceEntries(orderId, limit) {
+      try {
+        return db.select().from(sqliteCommerceEntry).where(eq(sqliteCommerceEntry.orderId, orderId)).orderBy(desc(sqliteCommerceEntry.createdAt), desc(sqliteCommerceEntry.id)).limit(limit).all();
+      } catch (error) {
+        if (missingCommerceTable(error)) return [];
+        throw error;
+      }
+    },
+    async readCommerceTotals(period) {
+      const empty = { paidFen: 0, payers: 0, introEligible: 0, introRenewed: 0 };
+      try {
+        return client.transaction(() => {
+          const receipts = db.select(commerce.receipt).from(sqliteMembershipOrder).where(commerce.period(sqliteMembershipOrder.paidAt, period)).get();
+          const renewal = db.select(commerce.renewalCount).from(sqliteMembershipOrder).where(commerce.introEligibility(period, Date.now())).get();
+          const entries = db.select({ kind: sqliteCommerceEntry.kind,
+            value: sql<number>`sum(${sqliteCommerceEntry.value})`.mapWith(Number), quantity: sql<number>`sum(${sqliteCommerceEntry.quantity})`.mapWith(Number),
+          }).from(sqliteCommerceEntry).innerJoin(sqliteMembershipOrder, eq(sqliteMembershipOrder.id, sqliteCommerceEntry.orderId))
+            .where(and(gte(sqliteCommerceEntry.createdAt, period.from), lt(sqliteCommerceEntry.createdAt, period.to),
+              period.userId ? eq(sqliteMembershipOrder.userId, period.userId) : undefined)).groupBy(sqliteCommerceEntry.kind).all();
+          return { ...empty, ...receipts, ...renewal, entries };
+        })();
+      } catch (error) {
+        if (missingCommerceTable(error)) return { ...empty, entries: [] };
+        throw error;
+      }
+    },
+    async readModelUsage(filters) {
+      const where = usage.where(filters);
+      try {
+        return client.transaction(() => ({
+          groups: db.select(usage.totals).from(sqliteBillingLedger).where(where).groupBy(...usage.group).all(),
+          activeUsers: db.select(usage.activeUsers).from(sqliteBillingLedger).where(where).get()?.count ?? 0,
+          days: db.select(usage.daily).from(sqliteBillingLedger).where(where).groupBy(usage.day).orderBy(usage.day).all(),
+          alerts: mapModelUsageAlerts(db.all<ModelUsageAlertRow>(usage.alerts(filters))),
+        }))();
+      } catch (error) {
+        const failure = error as { message?: string; cause?: { message?: string } };
+        if ((failure.cause?.message ?? failure.message) === "no such table: multiTenantBillingLedger") return { groups: [], activeUsers: 0, days: [], alerts: [] };
+        throw error;
+      }
+    },
+    async listModelUsage(filters) {
+      try {
+        return db.select({ record: getTableColumns(sqliteBillingLedger), userName: sqliteUser.userName }).from(sqliteBillingLedger)
+          .leftJoin(sqliteUser, eq(sqliteUser.id, sqliteBillingLedger.userId)).where(usage.where(filters, filters.before))
+          .orderBy(desc(sqliteBillingLedger.createdAt), desc(sqliteBillingLedger.requestId)).limit(filters.limit + 1).all()
+          .map(({ record, userName }) => ({ ...record, userName }));
+      } catch (error) {
+        const failure = error as { message?: string; cause?: { message?: string } };
+        if ((failure.cause?.message ?? failure.message) === "no such table: multiTenantBillingLedger") return [];
+        throw error;
+      }
     },
     async getWallets(userId) {
       try { return db.select().from(sqliteWallet).where(eq(sqliteWallet.userId, userId)).all(); }

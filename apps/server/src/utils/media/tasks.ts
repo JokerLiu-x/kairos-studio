@@ -5,6 +5,7 @@ import type { ProviderTaskData } from "@toonflow/providers";
 import type { GeneratedMedia, MediaGenerationRequest } from "@toonflow/tools-scaffold/runtime";
 import type { AuthIdentity } from "@toonflow/multi-tenant-auth";
 import type { ModelOutcome } from "@toonflow/multi-tenant-gateway/types";
+import { modelUsageFeatureSchema, modelUsagePurposeSchema } from "@toonflow/multi-tenant-billing/config";
 import { audioGenerationSchema, imageGenerationSchema, videoGenerationSchema } from "@/utils/media/schemas";
 import { z } from "zod";
 import { error, errorFromCause, success } from "@/lib/responseFormat";
@@ -40,6 +41,7 @@ const recordSchema = z.strictObject({
   mediaType: mediaTypeSchema.optional(),
   request: z.union([imageGenerationSchema, videoGenerationSchema, audioGenerationSchema]).optional(),
   nodeId: z.string().min(1).max(512).optional(), canvasPath: relativePathSchema.optional(),
+  feature: modelUsageFeatureSchema.optional(), purpose: modelUsagePurposeSchema.optional(), expectMembership: z.boolean().optional(),
   ownerUserId: z.uuid().optional(), modelRouteCipher: z.string().min(1).max(8 * 1024 * 1024).optional(),
   chargeId: z.string().min(1).max(128).optional(),
   chargeStatus: z.enum(["settled", "released", "pendingReview"]).optional(),
@@ -78,7 +80,7 @@ type MediaTask = {
   completion?: Promise<void>;
   chargeFinalized?: boolean;
 };
-type TaskOwner = { nodeId?: string; canvasPath?: string };
+type TaskOwner = Pick<TaskRecord, "nodeId" | "canvasPath" | "feature" | "purpose" | "expectMembership">;
 
 // ACT: 单进程最多 1000 个执行中任务；磁盘记录保留，结束后只释放五分钟未用的内存缓存。
 const tasks = new Map<string, MediaTask>();
@@ -301,7 +303,7 @@ async function settleCharge(task: MediaTask, files: GeneratedMedia[], signal = t
   } finally { release(); }
   signal?.throwIfAborted();
   // ACT: 媒体仅证明交付与实际用量，缺失时长是否阻止结算由统一网关按价格快照决定。
-  const charge = await finalizeCharge(task, { kind: "usage", usage: { requests: 1, ...(durationKnown ? { seconds } : {}) } });
+  const charge = await finalizeCharge(task, { kind: "usage", usage: { requests: 1, outputs: files.length, ...(durationKnown ? { seconds } : {}) } });
   if (!charge || charge.status === "held") invalid("媒体任务扣费记录无效", 503);
 }
 
@@ -349,7 +351,7 @@ async function prepareCharge(task: MediaTask, recoverExisting = false) {
     record.chargeId = await modelGateway.reserveSnapshot(record.mediaType, record.request.providerId, record.request.modelId,
       record.modelRouteCipher, record.request, {
         actor: { id: record.ownerUserId, role: "user" }, requestId: record.taskId,
-        payload: record.request, scope: record.cwd, recoverExisting,
+        payload: record.request, scope: record.cwd, recoverExisting, feature: record.feature, purpose: record.purpose, expectMembership: record.expectMembership,
       });
   } catch (cause) {
     if ((cause as { status?: number } | null)?.status === 402) {
@@ -469,8 +471,8 @@ export async function start(cwd: string, taskId: string, mediaType: "image" | "v
   return locked(key, async () => {
     const current = await load(cwd, taskId, key, owner);
     if (current) {
-      if (current.record.request && serialize({ mediaType: current.record.mediaType, request: current.record.request, nodeId: current.record.nodeId, canvasPath: current.record.canvasPath })
-        !== serialize({ mediaType, request: parsed, nodeId: attachment.nodeId, canvasPath: attachment.canvasPath })) invalid("相同任务 ID 不能用于不同的生成请求", 409);
+      if (current.record.request && serialize({ mediaType: current.record.mediaType, request: current.record.request, nodeId: current.record.nodeId, canvasPath: current.record.canvasPath, expectMembership: current.record.expectMembership === true })
+        !== serialize({ mediaType, request: parsed, nodeId: attachment.nodeId, canvasPath: attachment.canvasPath, expectMembership: attachment.expectMembership === true })) invalid("相同任务 ID 不能用于不同的生成请求", 409);
       if (current.persistenceError) await persist(current);
       if (current.record.state === "running" && !current.active && await prepareCharge(current, true)) await launch(current, false);
       await reconcileCharge(current);

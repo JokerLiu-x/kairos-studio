@@ -375,7 +375,7 @@ export function configureAgentRequests(session: AgentSession, limits?: { maxRequ
           execution: configured.execution,
           context: { actor: configured.actor ?? null, requestId: randomUUID(), payload: {
             providerId: configured.publicProviderId, modelId: configured.publicModelId, context, thinkingLevel: configured.thinkingLevel,
-          }, scope: cwd },
+          }, scope: cwd, feature: "agent" },
           async execute() {
             const event = await execute();
             const usage = await usageTracker.usage();

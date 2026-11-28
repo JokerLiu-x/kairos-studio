@@ -4,9 +4,10 @@ import { calculateModelPrice, createModelRouting } from "@toonflow/multi-tenant-
 import { getPublicModelId, modelRouteSchema, modelRoutesSchema, modelRoutingRevisionSchema, publicModelIdSchema, modelProviderSchema, modelProvidersSchema } from "@toonflow/multi-tenant-models/config";
 import type { ManagedModelProvider, ModelProvider, ModelRoute, ProviderConfigurationSnapshot } from "@toonflow/multi-tenant-models/config";
 import { createBilling } from "@toonflow/multi-tenant-billing";
-import { billingUsageSchema } from "@toonflow/multi-tenant-billing/config";
+import { billingUsageSchema, modelUsageFeatureSchema, modelUsagePurposeSchema } from "@toonflow/multi-tenant-billing/config";
 import type { BillingCredit, BillingReleaseMetadata, BillingUsage } from "@toonflow/multi-tenant-billing/config";
 import type { AvailableModel, ModelExecution, ModelFinalization, ModelGatewayOptions, ModelMap, ModelOutcome, ModelRequestContext, ModelRunFailure, ModelRunInput, ModelType, ModelExecutionResources, PublicModel } from "./types";
+import type { ModelUsageFilters, ModelUsagePage } from "@toonflow/multi-tenant-billing";
 
 export type * from "./types";
 
@@ -25,6 +26,8 @@ const executionSchema = z.strictObject({
 const contextSchema = z.strictObject({
   actor: z.object({ id: z.string().min(1).max(64), role: z.enum(["user", "admin"]) }).nullable(),
   requestId: z.uuid(), payload: z.unknown(), scope: z.string().min(1).max(4096).optional(), recoverExisting: z.boolean().optional(),
+  feature: modelUsageFeatureSchema.optional(), purpose: modelUsagePurposeSchema.optional(),
+  expectMembership: z.boolean().optional(),
 });
 const outcomeSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("usage"), usage: billingUsageSchema }),
@@ -184,24 +187,26 @@ export function createModelGateway<Upstreams extends ModelMap, Catalogs extends 
   async function reserve<K extends ModelType>(execution: ModelExecution<Upstreams[K]>, context: ModelRequestContext) {
     if (!options.enabled()) fail("多租户模型路由尚未开启", 403);
     const input = contextSchema.parse(context);
-    if (!input.actor) fail("请先登录 Toonflow", 401);
+    const actor = input.actor;
+    if (!actor) fail("请先登录 Toonflow", 401);
     const route = modelRouteSchema.parse(execution.route);
     const revision = revisionSchema.parse(execution.revision);
     const adapter = options.adapters[route.type];
     const checked = { route, revision, upstream: await routeAccess(() => adapter.restore(execution.upstream, route)) };
     await routeAccess(() => adapter.validate(checked, input.payload));
-    if (input.actor.role === "admin") return undefined;
+    if (actor.role === "admin") return undefined;
     const maximumUsage = await routeAccess(() => adapter.maximumUsage(checked, input.payload));
     let requestHash: string;
     if (execution.legacyFormat) {
       if (!input.scope || !input.payload || typeof input.payload !== "object" || Array.isArray(input.payload)) fail("媒体任务路由快照无效", 409);
       // ACT: 旧任务只保留原哈希协议以恢复已存在预占；新执行统一使用显式 scope，不由调用方拼接哈希。
-      requestHash = hashRequest({ owner: input.actor.id, routeId: route.id, revision, request: { ...input.payload, directory: input.scope } });
+      requestHash = hashRequest({ owner: actor.id, routeId: route.id, revision, request: { ...input.payload, directory: input.scope } });
     } else {
-      requestHash = hashRequest({ owner: input.actor.id, routeId: route.id, revision, payload: input.payload, scope: input.scope });
+      requestHash = hashRequest({ owner: actor.id, routeId: route.id, revision, payload: input.payload, scope: input.scope });
     }
     const result = await billingAccess(() => billing.reserve({
-      userId: input.actor!.id, requestId: input.requestId, requestHash, route, revision, maximumUsage, recoverExisting: input.recoverExisting,
+      userId: actor.id, requestId: input.requestId, requestHash, route, revision, maximumUsage,
+      recoverExisting: input.recoverExisting, feature: input.feature, purpose: input.purpose, expectMembership: input.expectMembership,
     }));
     return result.id;
   }
@@ -212,16 +217,16 @@ export function createModelGateway<Upstreams extends ModelMap, Catalogs extends 
     if (!userId) fail("计费记录归属不一致，请联系管理员", 503);
     const evidence = outcomeSchema.parse(outcome);
     if (evidence.kind === "usage") return billingAccess(() => billing.settle(chargeId, userId, evidence.usage));
-    const canRelease = evidence.kind === "notSubmitted" || evidence.kind !== "unknown" && !evidence.delivered;
+    const releaseOutcome = evidence.kind === "notSubmitted" || evidence.kind !== "unknown" && !evidence.delivered ? evidence.kind : undefined;
     let current;
     try { current = await billingAccess(() => billing.getCharge(chargeId, userId)); }
     catch (cause) {
-      if (canRelease && finalizationOptions?.missingOkay && (cause as { status?: number } | null)?.status === 404) return undefined;
+      if (releaseOutcome && finalizationOptions?.missingOkay && (cause as { status?: number } | null)?.status === 404) return undefined;
       throw cause;
     }
     if (current.status !== "reserved") return { ...current, status: current.status, capped: false };
-    if (!canRelease) return { status: "held" };
-    try { await billingAccess(() => billing.release(chargeId, userId)); }
+    if (!releaseOutcome) return { status: "held" };
+    try { await billingAccess(() => billing.release(chargeId, userId, { outcome: releaseOutcome })); }
     catch (cause) {
       if (finalizationOptions?.missingOkay && (cause as { status?: number } | null)?.status === 404) return undefined;
       throw cause;
@@ -334,8 +339,12 @@ export function createModelGateway<Upstreams extends ModelMap, Catalogs extends 
       return catalog;
     },
     quote,
-    async quoteRequest<K extends ModelType>(type: K, providerId: string, modelId: string, request: unknown) {
+    async quoteRequest<K extends ModelType>(type: K, providerId: string, modelId: string, request: unknown, actor?: ModelRequestContext["actor"]) {
       const execution = await resolve(type, providerId, modelId, undefined, request);
+      if ((type === "image" || type === "video") && actor?.role === "user"
+        && await billingAccess(() => billing.hasMembership(actor.id, execution.route.id))) {
+        return { amount: "0", currency: execution.route.salePrice.currency, revision: execution.revision, membership: true };
+      }
       const result = quote(execution, await routeAccess(() => options.adapters[type].maximumUsage(execution, request)));
       if (!result) fail("当前模型暂时无法报价");
       return result;
@@ -363,6 +372,8 @@ export function createModelGateway<Upstreams extends ModelMap, Catalogs extends 
       return { value: result.value, billing: settlement };
     },
     readBalance(userId: string) { return billingAccess(() => billing.read(userId)); },
+    readUsage(filters: ModelUsageFilters) { return billingAccess(() => billing.readUsage(filters)); },
+    listUsage(filters: ModelUsagePage) { return billingAccess(() => billing.listUsage(filters)); },
     credit(input: BillingCredit) { return billingAccess(() => billing.credit(input)); },
     async releaseReservation(userId: string, requestId: string, metadata: BillingReleaseMetadata) {
       const previous = await billingAccess(() => billing.getCharge(requestId, userId));

@@ -1,5 +1,7 @@
 import { bigint, boolean, index as mysqlIndex, int, json, mysqlEnum, mysqlTable, primaryKey as mysqlPrimaryKey, varchar } from "drizzle-orm/mysql-core";
 import { index as sqliteIndex, integer, primaryKey as sqlitePrimaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import type { ModelUsageAlert, ModelUsageDay, ModelUsageFilters, ModelUsageGroup, ModelUsagePage, ModelUsageRecord } from "./modelUsage";
+import type { CommerceEntry, CommerceOrders, CommercePeriod, MembershipHistory, MembershipOrder, MembershipPurchase } from "./commerce";
 
 export const sqliteAdmin = sqliteTable("multiTenantAdmin", {
   id: integer("id").primaryKey(),
@@ -194,6 +196,18 @@ export type AdminDatabase = {
   getWallets(userId: string): Promise<WalletRecord[]>;
   getBillingRecord(requestId: string): Promise<BillingRecord | undefined>;
   listBillingRecords(userId: string, limit: number): Promise<BillingRecord[]>;
+  readModelUsage(filters: ModelUsageFilters): Promise<{ groups: ModelUsageGroup[]; activeUsers: number; days: ModelUsageDay[]; alerts: ModelUsageAlert[] }>;
+  listModelUsage(filters: ModelUsagePage): Promise<ModelUsageRecord[]>;
+  initializeCommerce(): Promise<void>;
+  addMembership(input: MembershipPurchase): Promise<MembershipOrder>;
+  activeMembership(userId: string, routeId: string | undefined, at: number): Promise<MembershipOrder | undefined>;
+  listMemberships(filters: CommerceOrders): Promise<MembershipHistory[]>;
+  addCommerceEntry(input: Omit<CommerceEntry, "createdAt">): Promise<CommerceEntry>;
+  listCommerceEntries(orderId: string, limit: number): Promise<CommerceEntry[]>;
+  readCommerceTotals(period: CommercePeriod): Promise<{
+    paidFen: number; payers: number; introEligible: number; introRenewed: number;
+    entries: { kind: CommerceEntry["kind"]; value: number; quantity: number }[];
+  }>;
   creditWallet(record: Pick<BillingRecord, "requestId" | "userId" | "currency" | "amountMicros" | "requestHash" | "details" | "createdAt">): Promise<"created" | "duplicate">;
   reserveWallet(record: Pick<BillingRecord, "requestId" | "userId" | "currency" | "reservedMicros" | "requestHash" | "details" | "createdAt">): Promise<"created" | "duplicate" | "insufficient">;
   settleWallet(requestId: string, userId: string, amountMicros: number, usage: Record<string, unknown>, at: number): Promise<boolean>;

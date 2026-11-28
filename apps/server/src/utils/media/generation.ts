@@ -11,6 +11,7 @@ import { lockWorkspaceFiles, resolveWorkspacePath, writeWorkspaceFile } from "@/
 import { beginGeneration, getProviderPrice } from "@/utils/media/billing";
 import { detectMimeType, readPriceReference } from "@/utils/media/priceReference";
 import { modelGateway } from "@/utils/multiTenant/gateway";
+import { currentIdentity } from "@/utils/multiTenant/context";
 
 const maxMediaSize = 100 * 1024 * 1024;
 export type MediaGenerationCheckpoint = {
@@ -230,9 +231,9 @@ async function preparePriceRequest(directory: string | undefined, mediaType: "im
 export async function getMediaPrice(directory: string | undefined, mediaType: "image" | "video" | "audio", request: MediaGenerationRequest, signal?: AbortSignal) {
   signal?.throwIfAborted();
   if (modelGateway.enabled()) {
-    const quote = await modelGateway.quoteRequest(mediaType, request.providerId, request.modelId, request);
+    const quote = await modelGateway.quoteRequest(mediaType, request.providerId, request.modelId, request, currentIdentity());
     const unit = quote.currency === "POINTS" ? "积分" : quote.currency;
-    return { ...quote, price: `${quote.amount} ${unit}`, tips: translateMessage("平台售价，按实际用量结算") };
+    return { ...quote, price: `${quote.amount} ${unit}`, tips: "membership" in quote ? translateMessage("月卡包含") : translateMessage("平台售价，按实际用量结算") };
   }
   const { provider } = await configuredProvider(request, mediaType, signal, directory);
   if (!provider.getPrice) return null;

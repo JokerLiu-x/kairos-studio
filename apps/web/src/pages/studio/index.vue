@@ -116,12 +116,21 @@
                   <parameterMenu v-model="ratio" label="画面比例" :options="ratiosFor(mode)" :icon="IconAspectRatio" />
                   <parameterMenu v-if="mode === 'video'" v-model="duration" label="时长" :options="durations" :icon="IconClock" unit="秒" />
                   <parameterMenu v-if="mode === 'video' && resolutions.length" v-model="resolution" label="分辨率" :options="resolutions" :icon="IconDeviceDesktop" />
+                  <label v-if="currentUser?.role === 'user'" class="modelControl">
+                    <select v-model="creationPurpose" aria-label="创作用途">
+                      <option value="custom">自定义用途</option>
+                      <option v-if="mode === 'image'" value="productImage">商品主图</option>
+                      <option v-if="mode === 'image'" value="sceneImage">商品场景图</option>
+                      <option v-if="mode === 'video'" value="productVideo">商品短视频</option>
+                      <option value="inspiration">灵感模板</option>
+                    </select><icon-chevron-down :size="12" aria-hidden="true" />
+                  </label>
                 </div>
                 <div class="composeAction">
                   <span class="composeNote" role="status" id="generationStatus">{{ statusLabel }}</span>
                   <router-link v-if="latest && !generating && !onCreate" class="pillButton resultButton" to="/studio/create">查看结果</router-link>
                   <button v-if="pendingTask && !generating && !onCreate" class="pillButton resultButton" type="button" @click="resume">查询任务</button>
-                  <button class="sendButton" type="button" :disabled="!canGenerate" aria-describedby="generationStatus" @click="submitGeneration"><icon-sparkles :size="18" /><span>{{ generationPoints ? `生成 · ${generationPoints} 积分` : "生成" }}</span></button>
+                  <button class="sendButton" type="button" :disabled="!canGenerate" aria-describedby="generationStatus" @click="submitGeneration"><icon-sparkles :size="18" /><span>{{ membershipCoversModel ? "生成 · 月卡包含" : generationPoints ? `生成 · ${generationPoints} 积分` : "生成" }}</span></button>
                 </div>
               </div>
               <p v-if="referenceError || (!onCreate && generationError)" class="errorNote" role="alert">{{ referenceError || generationError }}</p>
@@ -408,7 +417,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue"
 import { useRoute, useRouter } from "vue-router";
 import { IconArrowRight, IconArrowUpRight, IconArrowsSort, IconAspectRatio, IconCheck, IconChevronDown, IconChevronUp, IconClock, IconCopy, IconDeviceDesktop, IconDownload, IconLibraryPhoto, IconListCheck, IconMoon, IconMovie, IconPencil, IconPhoto, IconPhotoPlus, IconPlayerPlay, IconPlus, IconRefresh, IconSearch, IconSettings, IconSparkles, IconStar, IconSun, IconTag, IconUser, IconVideo, IconX } from "@tabler/icons-vue";
 import { getNodeModelKey } from "@toonflow/nodes-scaffold/nodeAi";
-import { pointsRates } from "@toonflow/multi-tenant-billing/config";
+import { pointsRates, type ModelUsagePurpose } from "@toonflow/multi-tenant-billing/config";
 import { IconCoins } from "@tabler/icons-vue";
 import { ElMessage } from "element-plus";
 import userAccount from "@toonflow/multi-tenant-user-web/account";
@@ -599,6 +608,30 @@ const promptPlaceholder = computed(() => mode.value === "video" ? "描述主体�
   currentReferences.value.length > 1 ? "用 [图1]、[图2] 指定参考用途，例如：保留 [图1] 的人物，参考 [图2] 的光线。" : "描述你想生成的图片…");
 const referenceDialog = ref<HTMLDialogElement>();
 const referenceError = ref("");
+const creationPurpose = ref<ModelUsagePurpose>("custom");
+watch(mode, () => { creationPurpose.value = "custom"; }, { flush: "sync" });
+const membership = ref<{ endsAt: number; imageRouteId: string | null; videoRouteId: string | null } | null>(null);
+const membershipController = new AbortController();
+let membershipRequest = 0;
+let membershipTimer: ReturnType<typeof setTimeout> | undefined;
+const membershipCoversModel = computed(() => {
+  const id = mode.value === "image" ? membership.value?.imageRouteId : membership.value?.videoRouteId;
+  return Boolean(id && choices.value[mode.value]?.routeId === id);
+});
+async function loadMembership() {
+  if (currentUser.value?.role !== "user") { membership.value = null; return; }
+  const request = ++membershipRequest;
+  try {
+    const result = await http<typeof membership.value>({ method: "GET", url: "/api/multiTenant/user/membership", signal: membershipController.signal });
+    if (request !== membershipRequest || membershipController.signal.aborted) return;
+    membership.value = result && result.endsAt > Date.now() ? result : null;
+    clearTimeout(membershipTimer);
+    if (membership.value) {
+      membershipTimer = setTimeout(() => { if (membership.value && Date.now() >= membership.value.endsAt) membership.value = null; void loadMembership(); },
+        Math.min(Math.max(1, membership.value.endsAt - Date.now()), 86400000));
+    }
+  } catch { /* 报价仍由服务端按发起时的实际权益计算。 */ }
+}
 const submittedPrompt = ref("");
 const stagePrompt = computed(() => latest.value?.prompt || pendingTask.value?.prompt || submittedPrompt.value);
 const stageUrl = ref("");
@@ -675,6 +708,8 @@ function updateDock() {
 
 onMounted(() => {
   systemDark.addEventListener("change", updateSystemTheme);
+  window.addEventListener("focus", loadMembership);
+  void loadMembership();
   try {
     const draft = JSON.parse(sessionStorage.getItem(draftKey) ?? "null");
     if (draft?.mode === "image" || draft?.mode === "video") mode.value = draft.mode;
@@ -715,6 +750,9 @@ watch(() => route.name, () => {
 }, { flush: "post" });
 onBeforeUnmount(() => {
   systemDark.removeEventListener("change", updateSystemTheme);
+  window.removeEventListener("focus", loadMembership);
+  membershipController.abort();
+  clearTimeout(membershipTimer);
   window.removeEventListener("scroll", updateDock);
   document.removeEventListener("visibilitychange", scheduleInspirationRefresh);
   window.clearTimeout(refreshTimer);
@@ -739,10 +777,12 @@ async function submitGeneration() {
   if (!canGenerate.value) return;
   const text = prompt.value.trim();
   submittedPrompt.value = text;
-  const task = run(mode.value, text, ratio.value, duration.value, [...currentReferences.value], mode.value === "video" ? resolution.value : "");
+  const task = run(mode.value, text, ratio.value, duration.value, [...currentReferences.value],
+    mode.value === "video" ? resolution.value : "", creationPurpose.value, membershipCoversModel.value);
   await router.push("/studio/create");
   window.scrollTo(0, 0);
   await task;
+  void loadMembership();
 }
 
 async function openInspiration(item: Inspiration) {
@@ -872,6 +912,7 @@ async function useInspiration(type: QuickMode, withReference: boolean) {
   const inspiration = selected.value;
   if (!inspiration) return;
   changeMode(type);
+  creationPurpose.value = inspiration.category === "电商宣传" ? type === "video" ? "productVideo" : "productImage" : "inspiration";
   if (withReference) {
     const limit = referenceLimitFor(type);
     if (!limit) referenceError.value = "当前模型不支持参考图，请切换模型。";

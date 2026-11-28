@@ -51,6 +51,10 @@
             <icon-users-group :size="20" aria-hidden="true" />
             <span class="sidebarText">{{ translate("用户管理") }}</span>
           </router-link>
+          <router-link class="sidebarItem" :class="{ active: route.name === 'multiTenantBusiness' }" :to="{ name: 'multiTenantBusiness' }" :title="translate('用量与经营')" :aria-label="translate('用量与经营')">
+            <icon-chart-bar :size="20" aria-hidden="true" />
+            <span class="sidebarText">{{ translate("用量与经营") }}</span>
+          </router-link>
           <div class="navGroup">
             <p class="groupTitle">{{ translate("模型服务") }}</p>
             <router-link class="sidebarItem" :class="{ active: route.name === 'multiTenantProviders' }" :to="{ name: 'multiTenantProviders' }" :title="translate('供应商管理')" :aria-label="translate('供应商管理')">
@@ -98,7 +102,7 @@
           <div class="contentInner">
             <el-alert v-if="requestError" class="requestError" :title="requestError" type="error" :closable="false" showIcon />
             <router-view v-slot="{ Component: currentComponent }">
-              <component :is="currentComponent" v-bind="['multiTenantUsers', 'multiTenantSourceMapping', 'multiTenantProviders', 'multiTenantModels', 'multiTenantPrices'].includes(String(route.name)) ? { request, onSessionExpired: sessionExpired } : route.name === 'multiTenantConfiguration' ? { registrationEnabled, registrationSaving } : {}" :enabled="enabled" :saving="saving" :creationUrl="creationUrl" @changeEnabled="changeEnabled" @changeRegistration="changeRegistration" @openCreation="emit('back')" />
+              <component :is="currentComponent" v-bind="['multiTenantUsers', 'multiTenantBusiness', 'multiTenantSourceMapping', 'multiTenantProviders', 'multiTenantModels', 'multiTenantPrices'].includes(String(route.name)) ? { request, onSessionExpired: sessionExpired } : route.name === 'multiTenantConfiguration' ? { registrationEnabled, registrationSaving } : {}" :enabled="enabled" :saving="saving" :creationUrl="creationUrl" @changeEnabled="changeEnabled" @changeRegistration="changeRegistration" @openCreation="emit('back')" />
             </router-view>
           </div>
         </main>
@@ -111,7 +115,7 @@
 import { translate } from "@toonflow/i18n/vue";
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { RouterLink, RouterView, useRoute } from "vue-router";
-import { IconAdjustments, IconCoins, IconExternalLink, IconLayoutDashboard, IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand, IconPlugConnected, IconRoute, IconSettings, IconUsersGroup, IconUserShield } from "@tabler/icons-vue";
+import { IconAdjustments, IconChartBar, IconCoins, IconExternalLink, IconLayoutDashboard, IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand, IconPlugConnected, IconRoute, IconSettings, IconUsersGroup, IconUserShield } from "@tabler/icons-vue";
 import { ElAlert, ElButton, ElForm, ElFormItem, ElInput, ElSkeleton, type InputInstance } from "element-plus";
 import type { AdminRequest } from "./types";
 import "element-plus/es/components/alert/style/css";
@@ -132,6 +136,7 @@ const route = useRoute();
 const sidebarCollapsed = ref(false);
 const pageTitle = computed(() => {
   if (route.name === "multiTenantUsers") return translate("用户管理");
+  if (route.name === "multiTenantBusiness") return translate("用量与经营");
   if (route.name === "multiTenantConfiguration") return translate("系统配置");
   if (route.name === "multiTenantSourceMapping") return translate("数据源映射");
   if (route.name === "multiTenantProviders") return translate("供应商管理");

@@ -4,6 +4,9 @@ import { z } from "zod";
 import type { AdminDatabase } from "./schema";
 
 export type { AdminDatabase, AdminRecord, AdminUpdate, UserRecord, UserUpdate, WebSessionRecord, ManagedUser, ListUserOptions, SourceMappingRecord, ModelRoutingRecord, WalletRecord, BillingRecord, PointsOrder } from "./schema";
+export type { ModelUsageFilters, ModelUsageGroup, ModelUsagePage, ModelUsageRecord } from "./modelUsage";
+export { commerceEntryKinds, membershipRates, membershipSegments } from "./commerce";
+export type { CommerceEntry, CommerceOrders, CommercePeriod, MembershipOrder, MembershipPurchase } from "./commerce";
 
 export const dataSourceSchema = z.discriminatedUnion("provider", [
   z.strictObject({ provider: z.literal("sqlite"), sqlite: z.strictObject({ file: z.string().min(1).max(255).regex(/^[^\\/:*?"<>|\u0000-\u001f]+$/) }) }),

@@ -366,7 +366,7 @@ async function start() {
           if (connection.hostMode) {
             const destination = new URL(getMainWindowUrl(connection.port, connection.remote, true));
             // ACT: 只保留后台根与当前页面；新增后台页时同步白名单，其他目标仍回后台。
-            if (["#/multiTenant", "#/multiTenant/overview", "#/multiTenant/configuration", "#/multiTenant/users", "#/multiTenant/sourceMapping", "#/multiTenant/models", "#/multiTenant/providers", "#/multiTenant/prices"].includes(target.hash)) destination.hash = target.hash;
+            if (["#/multiTenant", "#/multiTenant/overview", "#/multiTenant/configuration", "#/multiTenant/users", "#/multiTenant/business", "#/multiTenant/sourceMapping", "#/multiTenant/models", "#/multiTenant/providers", "#/multiTenant/prices"].includes(target.hash)) destination.hash = target.hash;
             url = destination.href;
           }
           mainWindow.webview.loadURL(url);

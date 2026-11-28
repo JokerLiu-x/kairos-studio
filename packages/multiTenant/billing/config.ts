@@ -2,6 +2,9 @@ import { z } from "zod";
 import { modelAmountSchema } from "@toonflow/multi-tenant-models/config";
 
 export const billingCurrencySchema = z.enum(["CNY", "USD", "POINTS"]);
+export const modelUsageFeatureSchema = z.enum(["quickCreation", "canvas", "mediaApi", "textApi", "agent"]);
+export const modelUsagePurposeSchema = z.enum(["productImage", "sceneImage", "productVideo", "inspiration", "custom"]);
+export const modelUsageReleaseSchema = z.enum(["notSubmitted", "rejected", "failed", "cancelled"]);
 export const pointsPacks = [
   { id: "starter", label: "体验包", amountFen: 990, points: 100 },
   { id: "creator", label: "创作包", amountFen: 2990, points: 330 },
@@ -23,10 +26,14 @@ export const billingUsageSchema = z.strictObject({
   cacheRead: tokenCount.optional(),
   cacheWrite: tokenCount.optional(),
   requests: tokenCount.optional(),
+  outputs: tokenCount.optional(),
   seconds: z.number().finite().min(0).max(Number.MAX_SAFE_INTEGER).optional(),
 });
 
 export type BillingCurrency = z.infer<typeof billingCurrencySchema>;
+export type ModelUsageFeature = z.infer<typeof modelUsageFeatureSchema>;
+export type ModelUsagePurpose = z.infer<typeof modelUsagePurposeSchema>;
+export type ModelUsageRelease = z.infer<typeof modelUsageReleaseSchema>;
 export type BillingCredit = z.infer<typeof billingCreditSchema>;
 export type BillingUsage = z.infer<typeof billingUsageSchema>;
 export type BillingWallet = { currency: BillingCurrency; balance: string; reserved: string; available: string };

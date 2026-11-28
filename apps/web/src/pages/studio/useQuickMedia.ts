@@ -4,6 +4,7 @@ import { getNodeModelIdentity, getNodeModelKey, useNodeAi, type NodeMediaModel, 
 import http from "@/lib/http";
 import useWorkspaceFiles from "@/lib/workspaceFiles";
 import { currentUser } from "@/stores/multiTenant";
+import type { ModelUsagePurpose } from "@toonflow/multi-tenant-billing/config";
 
 export type QuickMode = "image" | "video";
 type SavedReference = { path: string; mimeType: string };
@@ -221,7 +222,8 @@ export default function useQuickMedia() {
     } catch { return; }
   }
 
-  async function run(mode: QuickMode, prompt: string, ratio: string, duration: number, inputReferences: readonly QuickReference[], resolution: string) {
+  async function run(mode: QuickMode, prompt: string, ratio: string, duration: number, inputReferences: readonly QuickReference[], resolution: string,
+    purpose: ModelUsagePurpose, expectMembership: boolean) {
     if (busy.value || !prompt.trim()) return;
     const model = choices.value[mode];
     if (!model) return;
@@ -256,7 +258,7 @@ export default function useQuickMedia() {
       }));
       const input = { ...getNodeModelIdentity(model), directory: rootDirectory, outputDirectory: outputs, prompt: prompt.trim(), ratio, images: images.length ? images : undefined };
       remember({ id, mode, prompt: input.prompt, ratio, duration: mode === "video" ? duration : undefined, images, modelKey: getNodeModelKey(model), resolution: resolution || undefined });
-      const options = { taskId: id, onStatus: (status: { result?: unknown }) => { terminal = Boolean(status.result); } };
+      const options = { taskId: id, purpose, expectMembership, onStatus: (status: { result?: unknown }) => { terminal = Boolean(status.result); } };
       const frameMode = videoMode === "startEndRequired" || videoMode === "endFrameOptional" || videoMode === "startFrameOptional";
       const onlyLastFrame = videoMode === "startFrameOptional" && images.length === 1;
       const referenceOrder: NodeVideoRequest["referenceOrder"] = images.map((_, index) => frameMode

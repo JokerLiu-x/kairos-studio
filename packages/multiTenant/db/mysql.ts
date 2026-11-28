@@ -1,10 +1,12 @@
 import mysql from "mysql2/promise";
 import { drizzle } from "drizzle-orm/mysql2";
-import { and, asc, count, desc, eq, getTableColumns, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, getTableColumns, gte, lt, or, sql } from "drizzle-orm";
 import { mysqlSchema, varchar } from "drizzle-orm/mysql-core";
 import { mysqlAdmin, mysqlBillingLedger, mysqlModelRouting, mysqlPointsOrder, mysqlSettings, mysqlSourceMapping, mysqlUser, mysqlWallet, mysqlWebSession } from "./schema";
 import type { AdminDatabase, WalletRecord } from "./schema";
 import type { DataSource } from "./index";
+import { mapModelUsageAlerts, modelUsageQuery, type ModelUsageAlertRow } from "./modelUsage";
+import { commerceError, commerceQuery, confirmEntry, confirmPurchase, membershipDuration, mysqlMembershipOrder, mysqlCommerceEntry } from "./commerce";
 import { maxWalletMicros, validateWalletAmount, walletBalanceOverflow, walletSettlementExceeded, walletStateConflict } from "./billing";
 
 const informationColumns = mysqlSchema("information_schema").table("COLUMNS", {
@@ -22,6 +24,8 @@ const informationTables = mysqlSchema("information_schema").table("TABLES", {
 export function connectMysql(config: Extract<DataSource, { provider: "mysql" }>["mysql"]): AdminDatabase {
   const client = mysql.createPool({ ...config, connectionLimit: 5, ...(config.ssl ? { ssl: { ...config.ssl, rejectUnauthorized: true } } : {}) });
   const db = drizzle(client);
+  const commerce = commerceQuery(mysqlMembershipOrder);
+  const usage = modelUsageQuery(mysqlBillingLedger, value => sql`json_unquote(${value})`);
   let accountColumn: boolean | undefined;
   let initialized = false;
   let billingEngine: Promise<void> | undefined;
@@ -107,6 +111,150 @@ export function connectMysql(config: Extract<DataSource, { provider: "mysql" }>[
     },
     async getPointsOrder(id) {
       return (await db.select().from(mysqlPointsOrder).where(eq(mysqlPointsOrder.id, id)).limit(1))[0];
+    },
+    async initializeCommerce() {
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS kairosMembershipOrder (
+        id VARCHAR(36) PRIMARY KEY NOT NULL, userId VARCHAR(36) NOT NULL,
+        paymentRef VARCHAR(80) COLLATE utf8mb4_bin NOT NULL UNIQUE,
+        rate ENUM('intro','standard') NOT NULL, segment ENUM('merchant','creator','unknown') NOT NULL,
+        paidFen INTEGER NOT NULL, refundedFen INTEGER NOT NULL DEFAULT 0,
+        imageRouteId VARCHAR(36), videoRouteId VARCHAR(36),
+        paidAt BIGINT NOT NULL, startsAt BIGINT NOT NULL, endsAt BIGINT NOT NULL,
+        CHECK (paidFen > 0 AND refundedFen >= 0 AND refundedFen <= paidFen)
+        , INDEX kairosMembershipUserStarts (userId, startsAt), INDEX kairosMembershipPaidAt (paidAt)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS kairosCommerceEntry (
+        id VARCHAR(36) PRIMARY KEY NOT NULL, orderId VARCHAR(36) NOT NULL,
+        kind ENUM('refund','model','fee','support') NOT NULL, value INTEGER NOT NULL,
+        quantity INTEGER NOT NULL, note VARCHAR(256) NOT NULL, createdAt BIGINT NOT NULL,
+        CHECK (value > 0 AND quantity >= 0), INDEX kairosCommerceOrderTime (orderId, createdAt), INDEX kairosCommerceTime (createdAt)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+    },
+    async addMembership(input) {
+      try { return await db.transaction(async tx => {
+        const owner = (await tx.select({ id: mysqlUser.id, disabled: mysqlUser.disabled }).from(mysqlUser).where(eq(mysqlUser.id, input.userId)).limit(1).for("update"))[0];
+        if (!owner) commerceError("账号不存在", 404);
+        const previous = (await tx.select().from(mysqlMembershipOrder).where(or(eq(mysqlMembershipOrder.id, input.id), eq(mysqlMembershipOrder.paymentRef, input.paymentRef))).limit(1))[0];
+        if (previous) return confirmPurchase(input, previous);
+        if (owner.disabled) commerceError("账号已禁用", 403);
+        const latest = (await tx.select().from(mysqlMembershipOrder).where(and(eq(mysqlMembershipOrder.userId, input.userId), sql`${mysqlMembershipOrder.refundedFen} < ${mysqlMembershipOrder.paidFen}`)).orderBy(desc(mysqlMembershipOrder.endsAt)).limit(1))[0];
+        if (input.rate === "intro") {
+          const prior = (await tx.select({ id: mysqlMembershipOrder.id }).from(mysqlMembershipOrder).where(eq(mysqlMembershipOrder.userId, input.userId)).limit(1))[0];
+          if (prior) commerceError("此账号已购买过月卡，不能再使用首月价");
+        }
+        const now = Date.now();
+        const paidAt = input.paidAt ?? now;
+        const startsAt = Math.max(now, latest?.endsAt ?? 0);
+        const order = { ...input, paidAt, startsAt, endsAt: startsAt + membershipDuration, refundedFen: 0 };
+        await tx.insert(mysqlMembershipOrder).values(order);
+        return order;
+      }); } catch (error) {
+        if (errorCode(error) !== "ER_DUP_ENTRY") throw error;
+        const previous = (await db.select().from(mysqlMembershipOrder).where(or(eq(mysqlMembershipOrder.id, input.id), eq(mysqlMembershipOrder.paymentRef, input.paymentRef))).limit(1))[0];
+        if (!previous) throw error;
+        return confirmPurchase(input, previous);
+      }
+    },
+    async activeMembership(userId, routeId, at) {
+      try {
+        return (await db.select().from(mysqlMembershipOrder).where(commerce.active(userId, routeId, at)).orderBy(desc(mysqlMembershipOrder.startsAt)).limit(1))[0];
+      } catch (error) {
+        if (errorCode(error) === "ER_NO_SUCH_TABLE") return;
+        throw error;
+      }
+    },
+    async listMemberships(filters) {
+      try {
+        const firstOutputAt = (type: "image" | "video") => sql<number | null>`(select min(${mysqlBillingLedger.updatedAt}) from multiTenantBillingLedger
+          where ${mysqlBillingLedger.userId} = ${mysqlMembershipOrder.userId} and ${mysqlBillingLedger.createdAt} >= ${mysqlMembershipOrder.startsAt}
+          and ${mysqlBillingLedger.createdAt} < ${mysqlMembershipOrder.endsAt} and ${mysqlBillingLedger.status} = 'settled'
+          and json_unquote(json_extract(${mysqlBillingLedger.details}, '$.coveredOrderId')) = ${mysqlMembershipOrder.id}
+          and json_unquote(json_extract(${mysqlBillingLedger.details}, '$.type')) = ${type}
+          and json_extract(${mysqlBillingLedger.usage}, '$.outputs') > 0)`.mapWith(Number);
+        const modelPacks = sql<number>`(select coalesce(sum(${mysqlCommerceEntry.quantity}), 0) from kairosCommerceEntry
+          where ${mysqlCommerceEntry.orderId} = ${mysqlMembershipOrder.id} and ${mysqlCommerceEntry.kind} = 'model')`.mapWith(Number);
+        const rows = await db.select({ order: getTableColumns(mysqlMembershipOrder), userName: mysqlUser.userName,
+          firstImageAt: firstOutputAt("image"), firstVideoAt: firstOutputAt("video"), modelPacks, renewed: commerce.renewed })
+          .from(mysqlMembershipOrder).leftJoin(mysqlUser, eq(mysqlUser.id, mysqlMembershipOrder.userId)).where(commerce.list(filters))
+          .orderBy(desc(mysqlMembershipOrder.paidAt), desc(mysqlMembershipOrder.id)).limit(filters.limit + 1);
+        return rows.map(({ order, ...extra }) => ({ ...order, ...extra }));
+      } catch (error) {
+        if (errorCode(error) === "ER_NO_SUCH_TABLE") return [];
+        throw error;
+      }
+    },
+    async addCommerceEntry(input) {
+      try { return await db.transaction(async tx => {
+        const order = (await tx.select().from(mysqlMembershipOrder).where(eq(mysqlMembershipOrder.id, input.orderId)).limit(1).for("update"))[0];
+        if (!order) commerceError("月卡订单不存在", 404);
+        const previous = (await tx.select().from(mysqlCommerceEntry).where(eq(mysqlCommerceEntry.id, input.id)).limit(1))[0];
+        if (previous) return confirmEntry(input, previous);
+        if (input.kind === "refund") {
+          if (input.value > order.paidFen - order.refundedFen) commerceError("退款金额超过订单可退款余额", 400);
+          await tx.update(mysqlMembershipOrder).set({ refundedFen: order.refundedFen + input.value }).where(eq(mysqlMembershipOrder.id, order.id));
+        }
+        const entry = { ...input, createdAt: Date.now() };
+        await tx.insert(mysqlCommerceEntry).values(entry);
+        return entry;
+      }); } catch (error) {
+        if (errorCode(error) !== "ER_DUP_ENTRY") throw error;
+        const previous = (await db.select().from(mysqlCommerceEntry).where(eq(mysqlCommerceEntry.id, input.id)).limit(1))[0];
+        if (!previous) throw error;
+        return confirmEntry(input, previous);
+      }
+    },
+    async listCommerceEntries(orderId, limit) {
+      try {
+        return await db.select().from(mysqlCommerceEntry).where(eq(mysqlCommerceEntry.orderId, orderId)).orderBy(desc(mysqlCommerceEntry.createdAt), desc(mysqlCommerceEntry.id)).limit(limit);
+      } catch (error) {
+        if (errorCode(error) === "ER_NO_SUCH_TABLE") return [];
+        throw error;
+      }
+    },
+    async readCommerceTotals(period) {
+      const empty = { paidFen: 0, payers: 0, introEligible: 0, introRenewed: 0 };
+      try {
+        return await db.transaction(async tx => {
+          const receipts = (await tx.select(commerce.receipt).from(mysqlMembershipOrder).where(commerce.period(mysqlMembershipOrder.paidAt, period)).limit(1))[0];
+          const renewal = (await tx.select(commerce.renewalCount).from(mysqlMembershipOrder).where(commerce.introEligibility(period, Date.now())).limit(1))[0];
+          const entries = await tx.select({ kind: mysqlCommerceEntry.kind,
+            value: sql<number>`sum(${mysqlCommerceEntry.value})`.mapWith(Number), quantity: sql<number>`sum(${mysqlCommerceEntry.quantity})`.mapWith(Number),
+          }).from(mysqlCommerceEntry).innerJoin(mysqlMembershipOrder, eq(mysqlMembershipOrder.id, mysqlCommerceEntry.orderId))
+            .where(and(gte(mysqlCommerceEntry.createdAt, period.from), lt(mysqlCommerceEntry.createdAt, period.to),
+              period.userId ? eq(mysqlMembershipOrder.userId, period.userId) : undefined)).groupBy(mysqlCommerceEntry.kind);
+          return { ...empty, ...receipts, ...renewal, entries };
+        }, { isolationLevel: "repeatable read", accessMode: "read only" });
+      } catch (error) {
+        if (errorCode(error) === "ER_NO_SUCH_TABLE") return { ...empty, entries: [] };
+        throw error;
+      }
+    },
+    async readModelUsage(filters) {
+      const where = usage.where(filters);
+      try {
+        return await db.transaction(async tx => {
+          const groups = await tx.select(usage.totals).from(mysqlBillingLedger).where(where).groupBy(...usage.group);
+          const [users] = await tx.select(usage.activeUsers).from(mysqlBillingLedger).where(where);
+          const days = await tx.select(usage.daily).from(mysqlBillingLedger).where(where).groupBy(usage.day).orderBy(usage.day);
+          const [alertRows] = await tx.execute(usage.alerts(filters));
+          if (!Array.isArray(alertRows)) throw new Error("异常用量查询未返回记录");
+          return { groups, activeUsers: users?.count ?? 0, days, alerts: mapModelUsageAlerts(alertRows as ModelUsageAlertRow[]) };
+        }, { isolationLevel: "repeatable read", accessMode: "read only" });
+      } catch (error) {
+        if (errorCode(error) === "ER_NO_SUCH_TABLE") return { groups: [], activeUsers: 0, days: [], alerts: [] };
+        throw error;
+      }
+    },
+    async listModelUsage(filters) {
+      try {
+        const rows = await db.select({ record: getTableColumns(mysqlBillingLedger), userName: mysqlUser.userName }).from(mysqlBillingLedger)
+          .leftJoin(mysqlUser, eq(mysqlUser.id, mysqlBillingLedger.userId)).where(usage.where(filters, filters.before))
+          .orderBy(desc(mysqlBillingLedger.createdAt), desc(mysqlBillingLedger.requestId)).limit(filters.limit + 1);
+        return rows.map(({ record, userName }) => ({ ...record, userName }));
+      } catch (error) {
+        if (errorCode(error) === "ER_NO_SUCH_TABLE") return [];
+        throw error;
+      }
     },
     async getWallets(userId) {
       try {

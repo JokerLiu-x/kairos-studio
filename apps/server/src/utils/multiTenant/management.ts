@@ -5,6 +5,7 @@ import { authorize } from "./index";
 import { requestIdentity } from "./runtime";
 import { modelGateway } from "./gateway";
 import { assertAppRequest } from "@/utils/mcp/control";
+import { readUsageFilters, readUsagePage } from "./usageQuery";
 
 export async function getModelRouting(req: Request) {
   await authorize(req);
@@ -44,6 +45,16 @@ export async function inspectModelProvider(req: Request, kind: ModelProvider["ki
 export async function getUserBilling(req: Request, userId: string) {
   await authorize(req);
   return modelGateway.readBalance(userId);
+}
+
+export async function readModelUsage(req: Request) {
+  await authorize(req);
+  return modelGateway.readUsage(readUsageFilters(req.query));
+}
+
+export async function listModelUsage(req: Request) {
+  await authorize(req);
+  return modelGateway.listUsage(readUsagePage(req.query));
 }
 
 export async function creditUserBalance(req: Request, input: BillingCredit) {

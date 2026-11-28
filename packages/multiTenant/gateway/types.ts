@@ -1,4 +1,4 @@
-import type { BillingCredit, BillingReleaseMetadata, BillingSettlement, BillingSnapshot, BillingUsage } from "@toonflow/multi-tenant-billing/config";
+import type { BillingCredit, BillingReleaseMetadata, BillingSettlement, BillingSnapshot, BillingUsage, ModelUsageFeature, ModelUsagePurpose } from "@toonflow/multi-tenant-billing/config";
 import type { ManagedModelProvider, ModelPrice, ModelProvider, ModelRoute } from "@toonflow/multi-tenant-models/config";
 
 export type ModelType = ModelRoute["type"];
@@ -9,6 +9,9 @@ export type ModelRequestContext = {
   requestId: string;
   payload: unknown;
   scope?: string;
+  feature?: ModelUsageFeature;
+  purpose?: ModelUsagePurpose;
+  expectMembership?: boolean;
   recoverExisting?: boolean;
 };
 export type AvailableModel = {

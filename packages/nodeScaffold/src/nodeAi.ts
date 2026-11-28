@@ -100,7 +100,9 @@ export type NodeAiTool = {
 
 async function readResult<T>(response: Response): Promise<T> {
   const result = await response.json();
-  if (!response.ok || result.code !== 200) throw Object.assign(new Error(result.message || `AI 请求失败（HTTP ${response.status}），请稍后重试。`), { status: response.status });
+  if (!response.ok || result.code !== 200) throw Object.assign(new Error(result.message || `AI 请求失败（HTTP ${response.status}），请稍后重试。`), {
+    status: response.status, code: typeof result.data?.code === "string" ? result.data.code : undefined,
+  });
   return result.data;
 }
 
@@ -133,6 +135,8 @@ export type NodeMediaTaskOptions = {
   taskId?: string;
   nodeId?: string;
   canvasPath?: string;
+  purpose?: "productImage" | "sceneImage" | "productVideo" | "inspiration" | "custom";
+  expectMembership?: boolean;
   onStatus?: (status: NodeMediaTaskStatus) => void | Promise<void>;
   isCancelled?: () => boolean;
 };
@@ -382,10 +386,12 @@ export function useNodeAi(options: { onModelsChanged?: () => unknown } = {}) {
     const submitted = fetch("/api/ai/media/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-toonflow-workspace": "1" },
-      body: JSON.stringify({ ...input, mediaType, taskId, nodeId: options.nodeId, canvasPath: options.canvasPath }), signal: AbortSignal.timeout(30000),
+      body: JSON.stringify({ ...input, mediaType, taskId, nodeId: options.nodeId, canvasPath: options.canvasPath,
+        purpose: options.purpose, expectMembership: options.expectMembership }), signal: AbortSignal.timeout(30000),
     }).then(response => readResult<{ taskId: string }>(response).catch(error => {
       // 仅标记提交响应的明确拒绝；取消请求和后续状态查询失败不能释放任务身份。
-      if (!waitingSignal.aborted && error instanceof Error && [400, 401, 403, 404, 405, 413, 415, 422, 429].includes(response.status)) {
+      if (!waitingSignal.aborted && error instanceof Error && ([400, 401, 402, 403, 404, 405, 413, 415, 422, 429].includes(response.status)
+        || (error as { code?: string }).code === "membershipUnavailable")) {
         Object.assign(error, { mediaTaskRejected: true });
       }
       throw error;

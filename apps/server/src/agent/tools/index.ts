@@ -55,7 +55,7 @@ export function createAgentToolContext(cwd: string, config: Record<string, unkno
     if (!modelGateway.enabled()) return generateMedia(cwd, mediaType, request, signal);
     if (!actor) throw Object.assign(new Error("请先登录 Toonflow"), { status: 401 });
     const taskId = crypto.randomUUID();
-    await mediaTasks.start(cwd, taskId, mediaType, request, {}, actor);
+    await mediaTasks.start(cwd, taskId, mediaType, request, { feature: "agent" }, actor);
     return mediaTasks.wait(cwd, taskId, actor, signal);
   }
   const resolvePath = async (path: string, readOnly = false) => {

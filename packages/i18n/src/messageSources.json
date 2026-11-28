@@ -597,7 +597,8 @@
     "apps/server/src/agent/mentionSources.ts"
   ],
   "加载更多": [
-    "apps/web/src/components/agent/mentionMenu.vue"
+    "apps/web/src/components/agent/mentionMenu.vue",
+    "packages/multiTenant/adminWeb/pages/business.vue"
   ],
   "已选 {0} 项": [
     "apps/web/src/components/agent/mentionMenu.vue",
@@ -628,7 +629,8 @@
     "apps/web/src/components/settings/panels/mediaModel/editProviderDialog.vue",
     "packages/multiTenant/adminWeb/pages/models.vue",
     "packages/providerWeb/providerEditor.vue",
-    "packages/multiTenant/adminWeb/pages/prices.vue"
+    "packages/multiTenant/adminWeb/pages/prices.vue",
+    "packages/multiTenant/adminWeb/pages/business.vue"
   ],
   "整数": [
     "apps/web/src/components/agent/mentionMenu.vue"
@@ -649,7 +651,8 @@
     "packages/multiTenant/adminWeb/pages/models.vue",
     "packages/providerWeb/modelEditorDialog.vue",
     "packages/providerWeb/providerEditor.vue",
-    "packages/multiTenant/adminWeb/pages/prices.vue"
+    "packages/multiTenant/adminWeb/pages/prices.vue",
+    "packages/multiTenant/adminWeb/pages/business.vue"
   ],
   "遮罩": [
     "apps/web/src/components/agent/mentionMenu.vue"
@@ -664,7 +667,9 @@
     "packages/multiTenant/adminWeb/pages/models.vue",
     "packages/providerWeb/modelEditorDialog.vue",
     "packages/providerWeb/providerEditor.vue",
-    "packages/multiTenant/adminWeb/pages/prices.vue"
+    "packages/multiTenant/adminWeb/pages/prices.vue",
+    "apps/web/src/pages/studio/index.vue",
+    "packages/multiTenant/adminWeb/pages/business.vue"
   ],
   "音频": [
     "apps/web/src/components/agent/mentionMenu.vue",
@@ -676,7 +681,8 @@
     "packages/multiTenant/adminWeb/pages/models.vue",
     "packages/providerWeb/modelEditorDialog.vue",
     "packages/providerWeb/providerEditor.vue",
-    "packages/multiTenant/adminWeb/pages/prices.vue"
+    "packages/multiTenant/adminWeb/pages/prices.vue",
+    "packages/multiTenant/adminWeb/pages/business.vue"
   ],
   "文件": [
     "apps/web/src/components/agent/mentionMenu.vue",
@@ -686,7 +692,8 @@
   "画布": [
     "apps/web/src/components/agent/mentionMenu.vue",
     "apps/web/src/components/settings/panels/mcp/index.vue",
-    "apps/web/src/pages/workspace/index.vue"
+    "apps/web/src/pages/workspace/index.vue",
+    "packages/multiTenant/adminWeb/pages/business.vue"
   ],
   "数据": [
     "apps/web/src/components/agent/mentionMenu.vue"
@@ -817,7 +824,8 @@
     "apps/web/src/components/videoPlayer.vue",
     "apps/web/src/pages/workspace/panels/document/components/editorTab.vue",
     "apps/web/src/pages/workspace/panels/document/components/workspaceSearch.vue",
-    "packages/multiTenant/adminWeb/pages/users.vue"
+    "packages/multiTenant/adminWeb/pages/users.vue",
+    "packages/multiTenant/adminWeb/pages/business.vue"
   ],
   "准备中": [
     "apps/web/src/components/agent/menu.vue"
@@ -835,7 +843,8 @@
   "失败": [
     "apps/web/src/components/agent/menu.vue",
     "apps/web/src/components/settings/panels/account/taskRecords.vue",
-    "apps/web/src/components/settings/panels/mediaModel/providerTestPanel.vue"
+    "apps/web/src/components/settings/panels/mediaModel/providerTestPanel.vue",
+    "packages/multiTenant/adminWeb/pages/business.vue"
   ],
   "达到限制": [
     "apps/web/src/components/agent/menu.vue"
@@ -843,7 +852,8 @@
   "已取消": [
     "apps/web/src/components/agent/menu.vue",
     "apps/web/src/components/settings/panels/pluginMarket/ffmpeg.vue",
-    "apps/server/src/utils/mcp/tools.ts"
+    "apps/server/src/utils/mcp/tools.ts",
+    "packages/multiTenant/adminWeb/pages/business.vue"
   ],
   "等待补充": [
     "apps/web/src/components/agent/menu.vue",
@@ -962,7 +972,8 @@
   "请求失败": [
     "apps/web/src/components/agent/replyStream.ts",
     "apps/web/src/lib/http.ts",
-    "apps/web/src/components/agent/marketInstallApproval.vue"
+    "apps/web/src/components/agent/marketInstallApproval.vue",
+    "packages/multiTenant/adminWeb/pages/business.vue"
   ],
   "连接已中断，请重试": [
     "apps/web/src/components/agent/replyStream.ts"
@@ -1241,7 +1252,8 @@
   ],
   "模型": [
     "apps/web/src/components/modelPopover.vue",
-    "apps/web/src/components/settings/panels/mediaModel/providerTestPanel.vue"
+    "apps/web/src/components/settings/panels/mediaModel/providerTestPanel.vue",
+    "packages/multiTenant/adminWeb/pages/business.vue"
   ],
   "请先在设置中添加模型": [
     "apps/web/src/components/modelPopover.vue"
@@ -1890,7 +1902,8 @@
     "apps/web/src/components/settings/panels/pluginMarket/index.vue",
     "apps/web/src/pages/home/explore.vue",
     "apps/web/src/pages/workspace/panels/canvas/components/assetBrowser.vue",
-    "packages/multiTenant/adminWeb/pages/users.vue"
+    "packages/multiTenant/adminWeb/pages/users.vue",
+    "packages/multiTenant/adminWeb/pages/business.vue"
   ],
   "周日": [
     "apps/web/src/components/settings/panels/account/modelCatalog.vue"
@@ -1951,7 +1964,8 @@
   "查询": [
     "apps/web/src/components/settings/panels/account/subAccounts.vue",
     "apps/web/src/components/settings/panels/account/taskRecords.vue",
-    "packages/multiTenant/adminWeb/pages/users.vue"
+    "packages/multiTenant/adminWeb/pages/users.vue",
+    "packages/multiTenant/adminWeb/pages/business.vue"
   ],
   "清除": [
     "apps/web/src/components/settings/panels/account/subAccounts.vue",
@@ -1993,7 +2007,8 @@
     "apps/web/src/components/settings/panels/account/wallet.vue",
     "packages/multiTenant/adminWeb/pages/users.vue",
     "packages/multiTenant/adminWeb/pages/models.vue",
-    "packages/multiTenant/userWeb/account.vue"
+    "packages/multiTenant/userWeb/account.vue",
+    "packages/multiTenant/adminWeb/pages/business.vue"
   ],
   "操作": [
     "apps/web/src/components/settings/panels/account/subAccounts.vue",
@@ -2002,7 +2017,8 @@
     "packages/multiTenant/adminWeb/pages/models.vue",
     "packages/multiTenant/adminWeb/pages/prices.vue",
     "packages/multiTenant/adminWeb/pages/providers.vue",
-    "packages/providerWeb/providerEditor.vue"
+    "packages/providerWeb/providerEditor.vue",
+    "packages/multiTenant/adminWeb/pages/business.vue"
   ],
   "删除凭证 {0}": [
     "apps/web/src/components/settings/panels/account/subAccounts.vue"
@@ -2024,7 +2040,8 @@
     "apps/web/src/components/settings/panels/account/subAccounts.vue"
   ],
   "到期时间": [
-    "apps/web/src/components/settings/panels/account/subAccounts.vue"
+    "apps/web/src/components/settings/panels/account/subAccounts.vue",
+    "packages/multiTenant/adminWeb/pages/business.vue"
   ],
   "请选择到期时间": [
     "apps/web/src/components/settings/panels/account/subAccounts.vue"
@@ -2145,7 +2162,8 @@
     "apps/web/src/components/settings/panels/account/taskRecords.vue"
   ],
   "时间范围": [
-    "apps/web/src/components/settings/panels/account/taskRecords.vue"
+    "apps/web/src/components/settings/panels/account/taskRecords.vue",
+    "packages/multiTenant/adminWeb/pages/business.vue"
   ],
   "开始时间": [
     "apps/web/src/components/settings/panels/account/taskRecords.vue"
@@ -2365,7 +2383,8 @@
     "apps/web/src/components/settings/panels/account/wallet.vue"
   ],
   "已退款": [
-    "apps/web/src/components/settings/panels/account/wallet.vue"
+    "apps/web/src/components/settings/panels/account/wallet.vue",
+    "packages/multiTenant/adminWeb/pages/business.vue"
   ],
   "订单关闭": [
     "apps/web/src/components/settings/panels/account/wallet.vue"
@@ -3287,7 +3306,8 @@
     "apps/web/src/components/settings/panels/general/ui.vue"
   ],
   "自定义": [
-    "apps/web/src/components/settings/panels/general/ui.vue"
+    "apps/web/src/components/settings/panels/general/ui.vue",
+    "packages/multiTenant/adminWeb/pages/business.vue"
   ],
   "字体大小": [
     "apps/web/src/components/settings/panels/general/ui.vue"
@@ -3963,7 +3983,8 @@
   "模型类型": [
     "apps/web/src/components/settings/panels/mediaModel/modelEditorDialog.vue",
     "packages/providerWeb/modelEditorDialog.vue",
-    "packages/multiTenant/adminWeb/pages/models.vue"
+    "packages/multiTenant/adminWeb/pages/models.vue",
+    "packages/multiTenant/adminWeb/pages/business.vue"
   ],
   "文本（旧配置）": [
     "apps/web/src/components/settings/panels/mediaModel/modelEditorDialog.vue",
@@ -5986,7 +6007,8 @@
     "apps/web/src/lib/mobile.ts"
   ],
   "未知": [
-    "apps/web/src/lib/mobile.ts"
+    "apps/web/src/lib/mobile.ts",
+    "packages/multiTenant/adminWeb/pages/business.vue"
   ],
   "发送系统通知失败": [
     "apps/web/src/lib/notification.ts"
@@ -11782,7 +11804,8 @@
   "账号": [
     "apps/web/src/components/settings/index.vue",
     "packages/multiTenant/userWeb/index.vue",
-    "packages/multiTenant/adminWeb/pages/users.vue"
+    "packages/multiTenant/adminWeb/pages/users.vue",
+    "packages/multiTenant/adminWeb/pages/business.vue"
   ],
   "注册账号": [
     "packages/multiTenant/userWeb/index.vue"
@@ -11802,7 +11825,9 @@
   ],
   "账号不存在": [
     "packages/multiTenant/auth/index.ts",
-    "packages/multiTenant/billing/index.ts"
+    "packages/multiTenant/billing/index.ts",
+    "packages/multiTenant/db/mysql.ts",
+    "packages/multiTenant/db/sqlite.ts"
   ],
   "设置内容过大": [
     "packages/multiTenant/auth/index.ts"
@@ -11966,7 +11991,9 @@
   "账号已禁用": [
     "packages/multiTenant/adminWeb/pages/users.vue",
     "packages/multiTenant/auth/index.ts",
-    "packages/multiTenant/billing/index.ts"
+    "packages/multiTenant/billing/index.ts",
+    "packages/multiTenant/db/mysql.ts",
+    "packages/multiTenant/db/sqlite.ts"
   ],
   "账号已启用": [
     "packages/multiTenant/adminWeb/pages/users.vue"
@@ -12116,7 +12143,8 @@
     "packages/multiTenant/adminWeb/pages/users.vue",
     "packages/multiTenant/userWeb/account.vue",
     "packages/multiTenant/adminWeb/pages/prices.vue",
-    "packages/providerWeb/providerEditor.vue"
+    "packages/providerWeb/providerEditor.vue",
+    "packages/multiTenant/adminWeb/pages/business.vue"
   ],
   "处理方式": [
     "packages/multiTenant/adminWeb/pages/models.vue"
@@ -12171,7 +12199,8 @@
     "packages/multiTenant/adminWeb/pages/models.vue",
     "packages/multiTenant/adminWeb/pages/users.vue",
     "packages/multiTenant/userWeb/account.vue",
-    "packages/multiTenant/adminWeb/pages/components/priceEditor.vue"
+    "packages/multiTenant/adminWeb/pages/components/priceEditor.vue",
+    "packages/multiTenant/adminWeb/pages/business.vue"
   ],
   "输入价格（每百万 Token）": [
     "packages/multiTenant/adminWeb/pages/models.vue",
@@ -12249,7 +12278,8 @@
     "packages/multiTenant/userWeb/account.vue"
   ],
   "备注": [
-    "packages/multiTenant/adminWeb/pages/users.vue"
+    "packages/multiTenant/adminWeb/pages/users.vue",
+    "packages/multiTenant/adminWeb/pages/business.vue"
   ],
   "最近 20 笔账目": [
     "packages/multiTenant/adminWeb/pages/users.vue"
@@ -12260,7 +12290,8 @@
   ],
   "时间": [
     "packages/multiTenant/adminWeb/pages/users.vue",
-    "packages/multiTenant/userWeb/account.vue"
+    "packages/multiTenant/userWeb/account.vue",
+    "packages/multiTenant/adminWeb/pages/business.vue"
   ],
   "模型扣费": [
     "packages/multiTenant/adminWeb/pages/users.vue"
@@ -12274,11 +12305,13 @@
   ],
   "已结算": [
     "packages/multiTenant/adminWeb/pages/users.vue",
-    "packages/multiTenant/userWeb/account.vue"
+    "packages/multiTenant/userWeb/account.vue",
+    "packages/multiTenant/adminWeb/pages/business.vue"
   ],
   "已释放": [
     "packages/multiTenant/adminWeb/pages/users.vue",
-    "packages/multiTenant/userWeb/account.vue"
+    "packages/multiTenant/userWeb/account.vue",
+    "packages/multiTenant/adminWeb/pages/business.vue"
   ],
   "读取余额失败，请重试": [
     "packages/multiTenant/adminWeb/pages/users.vue",
@@ -12837,5 +12870,344 @@
   "请通过端口 10888 访问创作功能": [
     "apps/server/src/utils/multiTenant/runtime.ts",
     "apps/server/src/utils/mobileLink/index.ts"
+  ],
+  "视频模型": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "创作用途": [
+    "apps/web/src/pages/studio/index.vue",
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "自定义用途": [
+    "apps/web/src/pages/studio/index.vue"
+  ],
+  "商品主图": [
+    "apps/web/src/pages/studio/index.vue",
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "商品场景图": [
+    "apps/web/src/pages/studio/index.vue",
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "商品短视频": [
+    "apps/web/src/pages/studio/index.vue",
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "灵感模板": [
+    "apps/web/src/pages/studio/index.vue",
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "生成 · 月卡包含": [
+    "apps/web/src/pages/studio/index.vue"
+  ],
+  "生成": [
+    "apps/web/src/pages/studio/index.vue"
+  ],
+  "灵感": [
+    "apps/web/src/pages/studio/index.vue"
+  ],
+  "月卡包含": [
+    "apps/server/src/utils/media/generation.ts",
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "读取或保存经营数据失败，请检查数据库": [
+    "apps/server/src/utils/multiTenant/commerce.ts"
+  ],
+  "请先初始化多租户数据库": [
+    "apps/server/src/utils/multiTenant/commerce.ts"
+  ],
+  "请同时提供时间游标和订单 ID": [
+    "apps/server/src/utils/multiTenant/commerce.ts"
+  ],
+  "请选择月卡包含的图片和视频模型": [
+    "apps/server/src/utils/multiTenant/commerce.ts"
+  ],
+  "收款时间不能晚于当前时间": [
+    "apps/server/src/utils/multiTenant/commerce.ts"
+  ],
+  "首月优惠的实收金额应为 169 元": [
+    "apps/server/src/utils/multiTenant/commerce.ts"
+  ],
+  "请选择已启用且类型匹配的模型路由": [
+    "apps/server/src/utils/multiTenant/commerce.ts"
+  ],
+  "仅模型采购记录需要填写套餐份数": [
+    "apps/server/src/utils/multiTenant/commerce.ts"
+  ],
+  "单笔售后时间最多为 10080 分钟": [
+    "apps/server/src/utils/multiTenant/commerce.ts"
+  ],
+  "用量统计时间范围必须大于零且不超过 90 天": [
+    "apps/server/src/utils/multiTenant/usageQuery.ts"
+  ],
+  "请同时提供用量记录的时间游标和请求 ID": [
+    "apps/server/src/utils/multiTenant/usageQuery.ts"
+  ],
+  "用量与经营": [
+    "packages/multiTenant/adminWeb/index.vue"
+  ],
+  "用量统计": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "月卡与成本": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "天": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "全部账号": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "来源": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "有模型请求的账号": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "请求量": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "预占中": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "每日用量": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "日期": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "使用账号": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "图片产出": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "视频产出": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "暂无用量": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "入口与用途": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "产出数": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "视频时长（秒）": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "异常账号": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "近 7 天达到 20 次且至少翻倍、最近 3 次已结束的请求均明确失败，或预占超过 1 小时。最多显示 50 个账号。": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "近 7 天请求": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "前 7 天请求": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "连续失败": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "超时预占": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "是": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "暂无异常账号": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "请求明细": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "实扣": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "暂无请求记录": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "实收": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "付费账号": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "模型采购": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "份": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "手续费": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "已记录经营结余": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "售后分钟": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "到期首月订单中按 199 元续费": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "月卡订单": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "登记已收款月卡": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "每期 30 天。结余按已登记的收款、退款、模型采购和手续费计算。": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "客户类型": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "付费到首次出图": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "付费到首次出视频": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "模型套餐份数": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "199 元续费": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "已续费": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "续期": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "成本与退款": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "暂无月卡订单": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "付款流水号": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "月卡价格": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "首月 169 元": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "正常价 199 元": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "实收金额（元）": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "收款时间（北京时间，可选）": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "图片模型": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "请选择": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "重试保存": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "确认收款并开通": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "分钟": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "金额（元）": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "仅登记已发生的退款。全额退款后，该期月卡停止覆盖新请求。": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "保存记录": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "金额／分钟": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "暂无成本或退款记录": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "快捷创作": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "媒体 API": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "文本 API": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "上游拒绝": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "未提交": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "手动释放": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "电商商家": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "个人创作者": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "退款": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "售后时间": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "全额退款": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "已到期": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "待生效": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "生效中": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "请填写金额、账号和月卡模型": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "请填写有效的数量与备注": [
+    "packages/multiTenant/adminWeb/pages/business.vue"
+  ],
+  "月卡已失效或不包含该模型，请刷新后重试": [
+    "packages/multiTenant/billing/index.ts"
+  ],
+  "付款流水号或请求 ID 已用于其他订单": [
+    "packages/multiTenant/db/commerce.ts"
+  ],
+  "请求 ID 已用于其他经营记录": [
+    "packages/multiTenant/db/commerce.ts"
+  ],
+  "此账号已购买过月卡，不能再使用首月价": [
+    "packages/multiTenant/db/mysql.ts",
+    "packages/multiTenant/db/sqlite.ts"
+  ],
+  "月卡订单不存在": [
+    "packages/multiTenant/db/mysql.ts",
+    "packages/multiTenant/db/sqlite.ts"
+  ],
+  "退款金额超过订单可退款余额": [
+    "packages/multiTenant/db/mysql.ts",
+    "packages/multiTenant/db/sqlite.ts"
+  ],
+  "异常用量查询未返回记录": [
+    "packages/multiTenant/db/mysql.ts"
   ]
 }

@@ -5,12 +5,14 @@ import { validateFields } from "@/lib/middleware";
 import { success, error, errorFromCause } from "@/lib/responseFormat";
 import u from "@/utils";
 import { translateMessage, validationOptions } from "@/lib/i18n";
+import { modelUsagePurposeSchema } from "@toonflow/multi-tenant-billing/config";
 
 export default Router().post("/", validateFields({
   directory: z.string().min(1).max(4096), mediaType: z.enum(["image", "video", "audio"]), taskId: z.uuid().optional(),
   nodeId: z.string().min(1).max(256).optional(), canvasPath: z.string().min(1).max(4096).optional(),
+  purpose: modelUsagePurposeSchema.optional(), expectMembership: z.boolean().optional(),
 }), async (req, res) => {
-  const { directory, mediaType, taskId, nodeId, canvasPath, ...request } = req.body;
+  const { directory, mediaType, taskId, nodeId, canvasPath, purpose, expectMembership, ...request } = req.body;
   const parsed = (mediaType === "image" ? u.mediaSchemas.imageGenerationSchema : mediaType === "video" ? u.mediaSchemas.videoGenerationSchema : u.mediaSchemas.audioGenerationSchema).safeParse(request, validationOptions());
   if (!parsed.success) {
     res.status(400).json(error("参数错误", parsed.error.issues.map(issue => ({ ...issue, message: translateMessage(issue.message) })), 400));
@@ -18,9 +20,12 @@ export default Router().post("/", validateFields({
   }
   const cwd = await u.workspace.resolveWorkspace(req, directory);
   const owner = u.multiTenant.requestIdentity(req);
+  const feature = nodeId && canvasPath ? "canvas"
+    : parsed.data.outputDirectory?.replaceAll("\\", "/") === "quickCreation/works" ? "quickCreation" : "mediaApi";
+  const attachment = { nodeId, canvasPath, feature, purpose: feature === "quickCreation" ? purpose : undefined, expectMembership } as const;
   if (taskId) {
     if (req.aborted || res.destroyed) return;
-    await u.mediaTasks.start(cwd, taskId, mediaType, parsed.data, { nodeId, canvasPath }, owner);
+    await u.mediaTasks.start(cwd, taskId, mediaType, parsed.data, attachment, owner);
     res.set("Cache-Control", "no-store").json(success({ taskId }));
     return;
   }
@@ -33,7 +38,7 @@ export default Router().post("/", validateFields({
   req.once("aborted", close);
   req.socket.once("close", close);
   try {
-    if (executionTaskId) await u.mediaTasks.start(cwd, executionTaskId, mediaType, parsed.data, { nodeId, canvasPath }, owner);
+    if (executionTaskId) await u.mediaTasks.start(cwd, executionTaskId, mediaType, parsed.data, attachment, owner);
     if (executionTaskId && controller.signal.aborted) { await u.mediaTasks.cancel(cwd, [executionTaskId], owner); return; }
     res.set({ "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no" });
     res.flushHeaders();

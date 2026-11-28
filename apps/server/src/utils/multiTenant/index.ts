@@ -19,6 +19,9 @@ export { currentIdentity } from "./context";
 export { modelGateway, requireDirectModelAccess } from "./gateway";
 export { userSettings } from "./settings";
 export { getModelRouting, getAvailableModels, saveModelRouting, configureModelCloud, getModelProviders, saveModelProviders, inspectModelProvider, getUserBilling, creditUserBalance, releaseUserReservation, readOwnBalance } from "./management";
+export { readModelUsage, listModelUsage } from "./management";
+export { usageQueryFields, usagePageFields } from "./usageQuery";
+export { commerceAdjustmentFields, commerceQueryFields, membershipFields, ownMembership, readCommerce, saveCommerceAdjustment, saveMembership } from "./commerce";
 
 const control = createMultiTenant(dirname(conf.path));
 const sourceMapping = createSourceMapping(dirname(conf.path));

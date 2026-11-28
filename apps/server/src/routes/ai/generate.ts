@@ -121,7 +121,7 @@ export default Router().post("/", validateFields(inputSchema.shape), async (req,
     controller.signal.throwIfAborted();
     const result = configured.execution ? await u.multiTenant.modelGateway.run({
       execution: configured.execution,
-      context: { actor: identity ?? null, requestId: input.requestId ?? crypto.randomUUID(), payload: input },
+      context: { actor: identity ?? null, requestId: input.requestId ?? crypto.randomUUID(), payload: input, feature: "textApi" },
       execute, failure,
     }) : { ...await execute(), billing: undefined };
     billing = result.billing;
